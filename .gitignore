@@ -1,0 +1,69 @@
+# ALLOWLIST. Everything in this project is ignored by default: planning documents (docs/, histoPlan.md,
+# README.md), data (data_raw/, data_clean/), literature and supplements (copyright), images, model
+# fits (outputs/), compiled Stan executables, and local tool settings (.claude/).
+# Tracked: model and staging source code (src/*.R, *.stan, *.py; JM 2026-11-14: public is fine),
+# the measuring tool (measure/) and repository plumbing (.github/, this file).
+# To track something new, add an explicit "!" rule below and check `git status --ignored` first.
+
+/*
+!/.gitignore
+!/.github/
+!/measure/
+# src: source files only (compiled Stan executables and anything else stay out)
+!/src/
+/src/*
+!/src/*.R
+!/src/*.r
+!/src/*.stan
+!/src/*.py
+
+# ---- never commit these, even inside allowed folders ----
+# images and documents (published figures are copyrighted; the tool reads images from a local folder)
+*.png
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+*.bmp
+*.gif
+*.webp
+*.svs
+*.ndpi
+*.pdf
+*.epub
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+# data and model files
+*.csv
+*.tsv
+*.rds
+*.RData
+*.rda
+*.nwk
+*.nex
+*.zip
+# image folders, manifests and measurement exports
+**/manifest.json
+**/manifest.csv
+**/exports/
+*__*__*.json
+# allowed exceptions: synthetic test images and icons generated for the tool
+!/measure/fixtures/synthetic/**
+!/measure/public/icons/**
+
+# ---- build and system clutter ----
+node_modules/
+dist/
+.vite/
+coverage/
+*.log
+.env
+.env.*
+.DS_Store
+._*
+Icon?
+*.swp
