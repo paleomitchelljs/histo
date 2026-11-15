@@ -12,7 +12,7 @@
 # year through mid-growth, 0.5 / (years from 25% to 75% of the asymptote). It
 # stays comparable across curve shapes, which the Richards k does not once nu
 # varies in sign.
-# Usage: Rscript 33_age_element_figure.R [fit tag=broad] [data prefix=broad] [note printed on the figure] [model=32|35|36]
+# Usage: Rscript 33_age_element_figure.R [fit tag=broad] [data prefix=broad] [note printed on the figure] [model=32|35|36|37]
 # Colour: ONE colour per taxon = its mid-growth rate, used for its tip branch,
 # silhouette, growth curve and all three ridgelines. Internal branches take the
 # model's node estimate. Dark background; diverging palette centred on the median.
@@ -27,10 +27,11 @@ DIVERGING <- c('#b2182b','#d6604d','#f4a582','#fddbc7','#f7f7f7','#d1e5f0','#92c
 rate_cols <- rev(DIVERGING)                       # slow -> blue, fast -> red
 BG <- '#14161b'; FG <- '#e8e8e8'; FG2 <- '#a9adb5'; RULE <- '#3a3e47'   # dark mode
 
-# 4th argument: model whose output to read (32 default; 35 = src/35_revision_fit.R; 36 = src/36_fit.R)
+# 4th argument: model whose output to read (32 default; 35 = src/35_revision_fit.R; 36 = src/36_fit.R; 37 = src/37_fit.R)
+# Models 36 and 37 write fit_m37_r37.rds etc., so pass the fit tag with its underscore (_r37).
 model <- ifelse(is.na(a[4]), "32", a[4])
 stems <- switch(model, "32"=c("fit_age_element", "age_element_index"), "35"=c("fit_revision", "revision_index"),
-                "36"=c("fit_m36", "m36_index"), stop("unknown model ", model))
+                "36"=c("fit_m36", "m36_index"), "37"=c("fit_m37", "m37_index"), stop("unknown model ", model))
 fit <- readRDS(file.path(out, paste0(stems[1], tag, ".rds")))
 idx <- readRDS(file.path(out, paste0(stems[2], tag, ".rds")))
 sp <- idx$species; S <- length(sp); tm <- idx$tm; P <- tm$P; edge <- tm$edge; B <- tm$B; T <- tm$T

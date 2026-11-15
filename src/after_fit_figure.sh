@@ -14,7 +14,8 @@ echo "$(date) fit process ended" >> "$OUT"
 if ! grep -q "DONE model" "$LOG"; then
   echo "$(date) fit log has no DONE line: the fit failed or was stopped; no figure drawn" >> "$OUT"; exit 1
 fi
-DIV=$(grep -Eo "\(([0-9.]+)%\) transitions ended with a divergence" "$LOG" | grep -Eo "[0-9.]+%" | head -1); DIV=${DIV:-0%}
+# percentages from the counts ("13 of 2800"): cmdstanr rounds 0.46% to "0.0%"
+DIV=$(grep -Eo "[0-9]+ of [0-9]+ \([0-9.]+%\) transitions ended with a divergence" "$LOG" | head -1 | awk '{printf "%.2f%%", 100*$1/$3}'); DIV=${DIV:-0%}
 TD=$(grep -Eo "\(([0-9.]+)%\) transitions hit the maximum treedepth" "$LOG" | grep -Eo "[0-9.]+%" | head -1); TD=${TD:-0%}
 RH=$(grep -Eo "worst R-hat [0-9.]+" "$LOG" | head -1 | awk '{print $3}')
 ESS=$(grep -Eo "min bulk ESS [0-9.]+" "$LOG" | head -1 | awk '{print $4}')
