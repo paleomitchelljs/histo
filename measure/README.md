@@ -19,14 +19,14 @@ place, and nothing is uploaded. The page itself is static HTML, CSS and JS with 
 Suggested order per image: enter your measurer ID, then:
 1. **Scale bar**: click both ends, then type its length (pre-filled from the manifest).
 2. **Centre**, or tick "No centre".
-3. **+ Periosteum** and **+ Medullary margin**.
-4. **+ Growth mark** for each mark, index 1 = innermost preserved.
-5. Optionally **+ EFS inner boundary**.
+3. **Start**, trace, **Tag** as periosteum; the same for the medullary margin.
+4. **Start** for each growth mark (auto-tagged; index 1 = innermost preserved).
+5. Optionally an EFS inner boundary (Tag it as such).
 6. Flags, scores, **Export**, **Next**.
 
-Tracing: click along the curve. **Enter** ends a segment, so the next click starts a new segment of the
+Tracing: **Start** begins a new curve (tagged as the next growth mark); **Tag** (or T) sets what it is (periosteum, medullary margin, growth mark, EFS inner boundary) and, for marks, index, type, confidence, EFS and pairing. Click along the curve. **Enter** ends a segment, so the next click starts a new segment of the
 same mark (use it across cracks and breaks; gaps are never bridged). **Esc** stops. **Backspace** removes
-the last point. Drag a point to move it; right-click a point to delete it. Mouse wheel zooms; drag the
+the last point. Drag a point to move it; right-click a point to delete it. Mouse wheel or the on-image pad zooms; arrow keys or the pad pan (Shift = bigger step); drag the
 background (or hold Space) to pan; **0** fits the image.
 
 The live statistics under each curve (length, mean radius from the centre, angular coverage) are a

@@ -32,7 +32,7 @@ const svg = $("svg"), layerImg = $("layerImg"), layerShapes = $("layerShapes"), 
 const NS = "http://www.w3.org/2000/svg";
 const S = { tasks: [], idx: -1, files: new Map(), dirHandle: null, doc: null, tool: "pan", active: null,
             view: { x: 0, y: 0, w: 1000, h: 800 }, img: null, undo: [], scaleClick: null, drag: null,
-            space: false, lastActivity: Date.now(), selCurve: null, filter: { contrast: 100, brightness: 100 } };
+            space: false, lastActivity: Date.now(), selCurve: null, current: null, filter: { contrast: 100, brightness: 100 } };
 
 // ---------- storage (per-viewer convenience only; the exported file is the record) ----------
 const store = {
@@ -122,7 +122,7 @@ async function openTask(i) {
   saveDoc();
   const t = S.tasks[i];
   if (t._missing) { status(`Image file not in folder: ${t.file}`); return; }
-  S.idx = i; S.active = null; S.undo = []; S.scaleClick = null; S.selCurve = null;
+  S.idx = i; S.active = null; S.undo = []; S.scaleClick = null; S.selCurve = null; S.current = null; closeTag();
   const file = S.files.get(t.file);
   if (S.img && S.img.url) URL.revokeObjectURL(S.img.url);
   const url = URL.createObjectURL(file);
@@ -217,31 +217,94 @@ function updateHint() {
   if (S.tool === "centre") return hint("Click the centre of the section.");
   if (S.tool === "trace" && S.active) { const c = curve(S.active.curveId);
     const seg = S.active.seg == null ? c.segments.length + 1 : S.active.seg + 1;
-    return hint(`Tracing ${curveName(c)} · segment ${seg}: click along it. Enter = end segment (leave a gap), Esc = stop.`); }
+    return hint(`Tracing ${curveName(c)} · segment ${seg}: click along it. Enter = gap (new segment) · T = tag · Esc = stop.`); }
   hint("");
 }
 document.querySelectorAll("[data-tool]").forEach((b) => b.addEventListener("click", () => setTool(b.dataset.tool)));
-document.querySelectorAll("[data-new]").forEach((b) => b.addEventListener("click", () => newCurve(b.dataset.new)));
 document.querySelectorAll("[data-flag]").forEach((cb) => cb.addEventListener("change", () => { if (!S.doc) return;
   S.doc.flags[cb.dataset.flag] = cb.checked; touch(); renderValidation(); }));
 
 const curve = (id) => S.doc.curves.find((c) => c.id === id);
-function curveName(c) { return c.kind === "mark" ? `Mark ${c.mark_index == null ? "?" : c.mark_index}` : KINDS[c.kind].label; }
-function newCurve(kind) {
-  if (!S.doc) return; pushUndo();
-  const marks = S.doc.curves.filter((c) => c.kind === "mark");
-  const c = { id: uid(), kind, segments: [] };
-  if (kind === "mark") Object.assign(c, { mark_index: marks.reduce((m, x) => Math.max(m, x.mark_index || 0), 0) + 1,
+function curveName(c) { return c.kind === "mark" ? `Mark ${c.mark_index == null ? "?" : c.mark_index}${c.index_uncertain ? "?" : ""}` : KINDS[c.kind].label; }
+function markDefaults(c) {
+  const marks = S.doc.curves.filter((x) => x.kind === "mark" && x.id !== c.id);
+  Object.assign(c, { mark_index: marks.reduce((m, x) => Math.max(m, x.mark_index || 0), 0) + 1,
     index_uncertain: false, mark_type: "LAG", confidence: 3, linked_to: null, in_efs: false });
-  S.doc.curves.push(c); startTrace(c.id);
 }
-function startTrace(id) { S.tool = "trace"; S.active = { curveId: id, seg: null }; S.selCurve = id;
+function setKind(c, kind) {
+  if (c.kind === kind) return; pushUndo(); c.kind = kind;
+  if (kind === "mark") markDefaults(c);
+  else for (const k of ["mark_index", "index_uncertain", "mark_type", "confidence", "linked_to", "in_efs"]) delete c[k];
+}
+// Start = a new curve, tagged as the next growth mark by default (retag with Tag)
+function newCurve(kind = "mark") {
+  if (!S.doc) return; pushUndo();
+  const c = { id: uid(), kind, segments: [] };
+  if (kind === "mark") { S.doc.curves.push(c); markDefaults(c); } else S.doc.curves.push(c);
+  startTrace(c.id);
+}
+function startTrace(id) { S.tool = "trace"; S.active = { curveId: id, seg: null }; S.current = id;
   document.querySelectorAll("[data-tool]").forEach((b) => b.classList.remove("active")); svg.classList.remove("pan");
   updateHint(); renderAll(); renderCurveList(); svg.focus(); }
 function endSegment() { if (S.active) { S.active.seg = null; updateHint(); renderAll(); renderCurveList(); } }
 function stopTrace() { endSegment(); setTool("pan"); }
-$("btnEndSeg").addEventListener("click", endSegment);
+$("btnStart").addEventListener("click", () => newCurve());
 $("btnStop").addEventListener("click", stopTrace);
+$("btnTag").addEventListener("click", (e) => { e.stopPropagation(); toggleTag($("btnTag")); });
+
+// ---------- tag mini-menu ----------
+function tagTarget() { const id = S.active ? S.active.curveId : S.current; return id && S.doc ? curve(id) : null; }
+function closeTag() { $("tagMenu").hidden = true; }
+function toggleTag(anchor) { const m = $("tagMenu"); if (!m.hidden) return closeTag(); openTag(anchor); }
+function openTag(anchor) {
+  const c = tagTarget(); if (!c) { status("Start a curve, or select one in the list, before tagging."); return; }
+  renderTag(c); const m = $("tagMenu"); m.hidden = false;
+  const r = (anchor || $("btnTag")).getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - mw - 8)) + "px";
+  m.style.top = (r.bottom + 4 + mh > window.innerHeight ? Math.max(8, r.top - mh - 4) : r.bottom + 4) + "px";
+}
+function renderTag(c) {
+  const m = $("tagMenu"); m.innerHTML = "";
+  const re = () => { renderTag(c); renderAll(); renderCurveList(); updateHint(); renderValidation(); };
+  m.append(h("div", { class: "tm-title" }, "Tag: " + curveName(c)));
+  const kinds = h("div", { class: "seg" });
+  for (const k in KINDS) kinds.append(h("button", { class: c.kind === k ? "on" : "", onclick: () => { setKind(c, k); re(); } },
+    h("span", { class: "sw", style: `background:${KINDS[k].color}` }), KINDS[k].label));
+  m.append(kinds);
+  if (c.kind === "mark") {
+    const marks = S.doc.curves.filter((x) => x.kind === "mark" && x.id !== c.id);
+    m.append(h("div", { class: "tm-row" }, h("label", {}, "Index"),
+      h("input", { type: "number", min: 1, step: 1, value: c.mark_index ?? "", title: "1 = innermost preserved mark",
+        onchange: (e) => { pushUndo(); c.mark_index = e.target.value === "" ? null : parseInt(e.target.value, 10); re(); } }),
+      h("label", { class: "chk" }, h("input", { type: "checkbox", checked: c.index_uncertain,
+        onchange: (e) => { c.index_uncertain = e.target.checked; re(); } }), "uncertain")));
+    const ty = h("div", { class: "seg" });
+    for (const t of MARK_TYPES) ty.append(h("button", { class: c.mark_type === t ? "on" : "", onclick: () => { c.mark_type = t; re(); } }, t.replace("_", "/")));
+    m.append(h("div", { class: "tm-row" }, h("label", {}, "Type"), ty));
+    const cf = h("div", { class: "seg" });
+    for (const v of [3, 2, 1]) cf.append(h("button", { class: c.confidence === v ? "on" : "", title: v === 3 ? "sure" : v === 1 ? "doubtful" : "",
+      onclick: () => { c.confidence = v; re(); } }, String(v)));
+    m.append(h("div", { class: "tm-row" }, h("label", {}, "Confidence"), cf));
+    m.append(h("div", { class: "tm-row" }, h("label", {}, ""), h("label", { class: "chk" }, h("input", { type: "checkbox", checked: c.in_efs,
+      onchange: (e) => { c.in_efs = e.target.checked; re(); } }), "inside EFS")));
+    if (c.mark_type === "double_multiple") {
+      const sel = h("select", { onchange: (e) => { c.linked_to = e.target.value || null; re(); } });
+      sel.append(h("option", { value: "" }, "—"));
+      for (const x of marks) sel.append(h("option", { value: x.id, selected: c.linked_to === x.id }, curveName(x)));
+      m.append(h("div", { class: "tm-row" }, h("label", {}, "Paired with"), sel));
+    }
+  }
+  m.append(h("div", { class: "tm-foot" }, h("button", { class: "primary", onclick: closeTag }, "Done")));
+}
+document.addEventListener("pointerdown", (e) => { const m = $("tagMenu"); if (!m.hidden && !m.contains(e.target) && e.target !== $("btnTag")) closeTag(); });
+
+// ---------- pan pad ----------
+function panBy(fx, fy) { S.view.x += S.view.w * fx; S.view.y += S.view.h * fy; setView(); }
+document.querySelectorAll("[data-pan]").forEach((b) => b.addEventListener("click", () => { if (!S.doc) return;
+  const [fx, fy] = b.dataset.pan.split(",").map(Number); panBy(fx * 0.2, fy * 0.2); }));
+$("padIn").addEventListener("click", () => S.doc && zoomAt([S.view.x + S.view.w / 2, S.view.y + S.view.h / 2], 1 / 1.25));
+$("padOut").addEventListener("click", () => S.doc && zoomAt([S.view.x + S.view.w / 2, S.view.y + S.view.h / 2], 1.25));
+$("padFit").addEventListener("click", fit);
 
 function addVertex(p) {
   const c = curve(S.active.curveId); pushUndo();
@@ -308,7 +371,10 @@ document.addEventListener("keydown", (ev) => {
   if (typing) return;
   if (ev.key === " ") { S.space = true; svg.classList.add("pan"); ev.preventDefault(); }
   else if (ev.key === "Enter") endSegment();
-  else if (ev.key === "Escape") stopTrace();
+  else if (ev.key === "Escape") { if (!$("tagMenu").hidden) closeTag(); else stopTrace(); }
+  else if (ev.key === "t" || ev.key === "T") openTag($("btnTag"));
+  else if (ev.key.startsWith("Arrow")) { ev.preventDefault(); if (!S.doc) return; const st = ev.shiftKey ? 0.5 : 0.1;
+    panBy(ev.key === "ArrowLeft" ? -st : ev.key === "ArrowRight" ? st : 0, ev.key === "ArrowUp" ? -st : ev.key === "ArrowDown" ? st : 0); }
   else if (ev.key === "Backspace" || ev.key === "Delete") { ev.preventDefault(); removeLastVertex(); }
   else if (ev.key === "0") fit();
   else if (ev.key === "+" || ev.key === "=") zoomAt([S.view.x + S.view.w / 2, S.view.y + S.view.h / 2], 1 / 1.25);
@@ -322,7 +388,7 @@ function renderAll() {
   if (!S.doc) return;
   const k = upp(), sw = 2 * k, r = 4 * k;
   for (const c of S.doc.curves) {
-    const isAct = S.active && S.active.curveId === c.id, isSel = S.selCurve === c.id;
+    const isAct = S.active && S.active.curveId === c.id, isSel = S.selCurve === c.id || S.current === c.id;
     const color = KINDS[c.kind].color;
     c.segments.forEach((seg, si) => {
       if (!seg.length) return;
@@ -390,47 +456,32 @@ function stats(c) {
     o.rmean = conv(rs.reduce((a, b) => a + b, 0) / rs.length); o.rmin = conv(Math.min(...rs)); o.rmax = conv(Math.max(...rs)); o.span = bins.size * 5; }
   return o;
 }
+function curveDetail(c) {
+  if (c.kind !== "mark") return "";
+  return [c.mark_type.replace("_", "/"), "conf " + c.confidence, c.in_efs ? "in EFS" : null,
+          c.linked_to ? "paired with " + curveName(curve(c.linked_to) || { kind: "mark", mark_index: "?" }) : null].filter(Boolean).join(" · ");
+}
 function renderCurveList() {
   const ul = $("curveList"); ul.innerHTML = ""; if (!S.doc) return;
-  const marks = S.doc.curves.filter((c) => c.kind === "mark");
   const order = ["periosteum", "efs_inner", "mark", "medullary"];
   const cs = [...S.doc.curves].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || (b.mark_index || 0) - (a.mark_index || 0));
-  if (!cs.length) { ul.append(h("li", { class: "muted" }, "Nothing traced yet. Use the + buttons above.")); }
+  if (!cs.length) { ul.append(h("li", { class: "muted" }, "Nothing traced yet. Press Start.")); }
   for (const c of cs) {
     const st = stats(c), u = pxPerUnit() ? unit() : "px";
     const isAct = S.active && S.active.curveId === c.id;
-    const li = h("li", { class: isAct ? "activeCurve" : "", onmouseenter: () => { S.selCurve = c.id; renderAll(); },
-                         onmouseleave: () => { S.selCurve = null; renderAll(); } });
-    const row = h("div", { class: "row" }, h("span", { class: "sw", style: `background:${KINDS[c.kind].color}` }),
-      h("span", { class: "kind" }, c.kind === "mark" ? "Mark" : KINDS[c.kind].label));
-    if (c.kind === "mark") {
-      row.append(h("input", { type: "number", min: 1, step: 1, value: c.mark_index ?? "", title: "Index, 1 = innermost preserved mark",
-        disabled: c.index_uncertain, onchange: (e) => { pushUndo(); c.mark_index = e.target.value === "" ? null : parseInt(e.target.value, 10); renderAll(); renderValidation(); } }),
-        h("label", { title: "Index uncertain (e.g. broken section)" }, h("input", { type: "checkbox", checked: c.index_uncertain,
-          onchange: (e) => { c.index_uncertain = e.target.checked; renderCurveList(); renderValidation(); } }), "?"));
-      const ty = h("select", { onchange: (e) => { c.mark_type = e.target.value; renderAll(); renderCurveList(); } });
-      for (const t of MARK_TYPES) ty.append(h("option", { value: t, selected: c.mark_type === t }, t.replace("_", "/")));
-      const cf = h("select", { title: "Confidence (3 = sure)", onchange: (e) => { c.confidence = +e.target.value; } });
-      for (const v of [3, 2, 1]) cf.append(h("option", { value: v, selected: c.confidence === v }, "conf " + v));
-      row.append(ty, cf);
-    }
-    row.append(h("button", { onclick: () => isAct ? stopTrace() : startTrace(c.id), title: "Continue tracing this curve" }, isAct ? "Done" : "Trace"),
-      h("button", { onclick: () => { pushUndo(); S.doc.curves = S.doc.curves.filter((x) => x.id !== c.id);
-        if (isAct) S.active = null; renderAll(); renderCurveList(); }, title: "Delete curve" }, "✕"));
-    li.append(row);
-    if (c.kind === "mark") {
-      const extra = h("div", { class: "row" });
-      extra.append(h("label", {}, h("input", { type: "checkbox", checked: c.in_efs, onchange: (e) => { c.in_efs = e.target.checked; } }), " in EFS"));
-      if (c.mark_type === "double_multiple") {
-        const sel = h("select", { title: "Linked mark of the same double/multiple LAG", onchange: (e) => { c.linked_to = e.target.value || null; } });
-        sel.append(h("option", { value: "" }, "link to…"));
-        for (const m of marks) if (m.id !== c.id) sel.append(h("option", { value: m.id, selected: c.linked_to === m.id }, "Mark " + (m.mark_index ?? "?")));
-        extra.append(sel);
-      }
-      li.append(extra);
-    }
-    li.append(h("div", { class: "stats" }, `${st.nseg} seg · ${st.nv} pts · length ${fmt(st.length)} ${u}` +
-      (st.rmean != null ? ` · r ${fmt(st.rmean)} (${fmt(st.rmin)}–${fmt(st.rmax)}) ${u} · ${st.span}° covered` : "")));
+    const li = h("li", { class: (isAct ? "activeCurve " : "") + (S.current === c.id ? "currentCurve" : ""), title: "Click to select",
+      onclick: () => { S.current = c.id; renderAll(); renderCurveList(); },
+      onmouseenter: () => { S.selCurve = c.id; renderAll(); }, onmouseleave: () => { S.selCurve = null; renderAll(); } });
+    const stop = (f) => (e) => { e.stopPropagation(); f(e); };
+    li.append(h("div", { class: "row" }, h("span", { class: "sw", style: `background:${KINDS[c.kind].color}` }),
+      h("span", { class: "kind" }, curveName(c)), h("span", { class: "detail" }, curveDetail(c)),
+      h("span", { class: "rowbtns" },
+        h("button", { title: isAct ? "Stop tracing" : "Continue tracing this curve", onclick: stop(() => isAct ? stopTrace() : startTrace(c.id)) }, isAct ? "■" : "▶"),
+        h("button", { title: "Tag", onclick: stop((e) => { S.current = c.id; if (!isAct) S.active = null; openTag(e.currentTarget); }) }, "✎"),
+        h("button", { title: "Delete curve", onclick: stop(() => { pushUndo(); S.doc.curves = S.doc.curves.filter((x) => x.id !== c.id);
+          if (isAct) S.active = null; if (S.current === c.id) S.current = null; closeTag(); renderAll(); renderCurveList(); }) }, "✕"))));
+    li.append(h("div", { class: "stats" }, `${st.nseg} seg · ${st.nv} pts · ${fmt(st.length)} ${u}` +
+      (st.rmean != null ? ` · r ${fmt(st.rmean)} (${fmt(st.rmin)}–${fmt(st.rmax)}) ${u} · ${st.span}°` : "")));
     ul.append(li);
   }
 }
