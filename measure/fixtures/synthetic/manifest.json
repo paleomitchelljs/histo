@@ -1,0 +1,66 @@
+{
+ "schema_version": "0.1",
+ "batch_id": "synthetic_fixtures",
+ "tasks": [
+  {
+   "figure_id": "syn_full_drift",
+   "file": "syn_full_drift.png",
+   "sha256": "a48bc9ae83b8178d2f27504a415ccf227645a64b039516b76e0cfa324218577e",
+   "source_id": "synthetic",
+   "citation": "Synthetic fixture (measure/tools/make_fixtures.py)",
+   "taxon": "Synthetica demonstrata",
+   "specimen": "SYN-FULL_DRIFT",
+   "element": "femur",
+   "view": "full_section",
+   "light": "normal",
+   "quality_tier": "A",
+   "measurable": "marks,medullary,efs",
+   "scale_value": "1 mm",
+   "caption": "Synthetic full section: 8 marks, centre drifts 76 px with growth.",
+   "assignment": {
+    "measurer": null,
+    "repeat": false
+   }
+  },
+  {
+   "figure_id": "syn_broken_efs",
+   "file": "syn_broken_efs.png",
+   "sha256": "536cc3e5dbed5eefe96dec02d4b31b5881c7a21e35ed5038d76bd820e9d0f0df",
+   "source_id": "synthetic",
+   "citation": "Synthetic fixture (measure/tools/make_fixtures.py)",
+   "taxon": "Synthetica demonstrata",
+   "specimen": "SYN-BROKEN_EFS",
+   "element": "femur",
+   "view": "partial_section",
+   "light": "normal",
+   "quality_tier": "B",
+   "measurable": "marks,medullary,efs",
+   "scale_value": "1 mm",
+   "caption": "Synthetic broken section: 11 marks, the outer 3 packed (EFS from mark 9), one sector missing.",
+   "assignment": {
+    "measurer": null,
+    "repeat": false
+   }
+  },
+  {
+   "figure_id": "syn_faint",
+   "file": "syn_faint.png",
+   "sha256": "b0200d95233e66e5c9628498dc0421ef3608344d7b676f87b410005c0eef96d5",
+   "source_id": "synthetic",
+   "citation": "Synthetic fixture (measure/tools/make_fixtures.py)",
+   "taxon": "Synthetica demonstrata",
+   "specimen": "SYN-FAINT",
+   "element": "femur",
+   "view": "full_section",
+   "light": "normal",
+   "quality_tier": "A",
+   "measurable": "marks,medullary,efs",
+   "scale_value": "1 mm",
+   "caption": "Synthetic low-contrast section: 6 faint marks (try the contrast slider).",
+   "assignment": {
+    "measurer": null,
+    "repeat": false
+   }
+  }
+ ]
+}

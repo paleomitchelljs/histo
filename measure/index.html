@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Histology Measure</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Histology Measure <span class="ver" id="ver"></span></div>
+  <div class="hgroup">
+    <button id="btnOpen" title="Open a folder of section images (with manifest.json if present)">Open folder</button>
+    <button id="btnDemo" title="Generate a synthetic section to try the tools">Demo image</button>
+    <input type="file" id="dirInput" webkitdirectory multiple hidden>
+    <label class="measurer">Measurer <input id="measurer" placeholder="ID or initials" size="10"></label>
+  </div>
+  <div class="hgroup">
+    <button id="btnUndo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
+    <button id="btnFit" title="Fit image to view (0)">Fit</button>
+    <button id="btnExport" class="primary" title="Validate and export this image's measurements">Export</button>
+    <button id="btnNext" title="Next task">Next ›</button>
+  </div>
+</header>
+
+<main>
+  <aside id="left">
+    <h2>Tasks <span id="taskCount" class="muted"></span></h2>
+    <ul id="taskList"><li class="muted">Open a folder or a demo image.</li></ul>
+    <h2>Image</h2>
+    <dl id="meta" class="meta"></dl>
+    <div id="caption" class="caption"></div>
+  </aside>
+
+  <section id="stage">
+    <svg id="svg" tabindex="0">
+      <g id="layerImg"></g>
+      <g id="layerShapes"></g>
+      <g id="layerVerts"></g>
+    </svg>
+    <div id="hint" class="hint"></div>
+    <div id="status" class="status"></div>
+  </section>
+
+  <aside id="right">
+    <h2>1 · Frame</h2>
+    <div class="tools">
+      <button data-tool="pan" class="tool">Pan / edit</button>
+      <button data-tool="scale" class="tool">Scale bar</button>
+      <button data-tool="centre" class="tool">Centre</button>
+    </div>
+    <div id="calibBox" class="box"></div>
+    <div class="flags">
+      <label><input type="checkbox" data-flag="no_scale"> No scale</label>
+      <label><input type="checkbox" data-flag="no_centre"> No centre</label>
+      <label><input type="checkbox" data-flag="section_oblique"> Section oblique</label>
+      <label><input type="checkbox" data-flag="deformation_visible"> Deformation visible</label>
+      <label><input type="checkbox" data-flag="outer_cortex_eroded"> Outer cortex eroded</label>
+      <label><input type="checkbox" data-flag="cracks_infill"> Cracks / infill</label>
+    </div>
+
+    <h2>2 · Trace</h2>
+    <div class="tools wrap">
+      <button data-new="periosteum">+ Periosteum</button>
+      <button data-new="medullary">+ Medullary margin</button>
+      <button data-new="mark" class="primary">+ Growth mark</button>
+      <button data-new="efs_inner">+ EFS inner boundary</button>
+    </div>
+    <div class="tools">
+      <button id="btnEndSeg" title="End this segment (Enter); the next click starts a new segment of the same curve (a gap)">End segment ⏎</button>
+      <button id="btnStop" title="Stop tracing (Esc)">Stop Esc</button>
+    </div>
+    <ul id="curveList" class="curves"></ul>
+
+    <h2>3 · Score</h2>
+    <form id="scores" class="scores"></form>
+    <label class="notes">Notes<textarea id="notes" rows="3"></textarea></label>
+    <div id="validation" class="box"></div>
+  </aside>
+</main>
+
+<footer>
+  Wheel: zoom · drag background: pan (or hold Space) · click: add vertex while tracing · drag vertex: move ·
+  right-click vertex: delete · Backspace: remove last vertex · Enter: end segment · Esc: stop · 0: fit
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
