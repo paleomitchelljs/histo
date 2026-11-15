@@ -93,6 +93,26 @@ mi <- function(folder, src, elem=list(), body=list(), keep=function(d) d){
 
 # ============ 1. existing staged ring table ============================================
 cur <- read_csv(file.path(clean,"lag_size_long_next.csv"), show_col_types=FALSE) %>% filter(!is.na(size), !is.na(age))
+## Maiasaura (Woodward et al. 2015, Suppl. Table 2), corrected 2026-11-14 (histoPlan section 9):
+##  * T50's two LAGs are labelled "1", "2" in the source, not "LAG 1", "LAG 2"; src/extract_maiasaura_docx.py
+##    skipped them, so T50 entered as perinate + periosteal surface at age 0.5. Rebuilt here from the raw table.
+##  * "Perinate Tibia" (2.5 cm) is ONE reference value repeated for every specimen. It is no longer a mark at
+##    age 0 in each series; it enters once, below, as a size at known age 0 of a pseudo-individual
+##    (Maiasaura_perinate) with log-SD 0.15.
+##  * The periosteal surface stays in the series as zone "periosteal" (size at death, age = marks + 0.5);
+##    model 36 does not count it as a mark (it is excluded from the marks-preserved count).
+mraw <- read_csv(file.path(root, "data_raw/external/maiasaura/suppl_table2_longitudinal.csv"), show_col_types=FALSE, col_types=cols(.default="c"))
+mall <- mraw %>% mutate(n=suppressWarnings(as.numeric(sub("^LAG\\s*", "", location))), circ=10*as.numeric(circ_cm)) %>% filter(!is.na(n))
+mcount <- mall %>% group_by(specimen) %>% summarise(nmax=max(n))     # marks preserved, sized or not
+mlag <- mall %>% filter(!is.na(circ)) %>% transmute(specimen, zone="lag", lag_index=n, age=n, size=circ)
+mper <- mraw %>% filter(grepl("^Periosteal", location)) %>% transmute(specimen, size=10*as.numeric(circ_cm)) %>% filter(!is.na(size)) %>%
+  left_join(mcount, by="specimen") %>%
+  transmute(specimen, zone="periosteal", lag_index=NA_real_, age=coalesce(nmax, 0) + 0.5, size)
+mtemplate <- cur %>% filter(species=="Maiasaura_peeblesorum") %>% group_by(specimen) %>% slice(1) %>% ungroup() %>%
+  select(-zone, -lag_index, -age, -size)
+mnew <- bind_rows(mlag, mper) %>% left_join(mtemplate, by="specimen") %>% mutate(is_efs=FALSE)
+stopifnot(!anyNA(mnew$species))
+cur <- bind_rows(cur %>% filter(species != "Maiasaura_peeblesorum"), mnew[, names(cur)])
 myh_class <- tribble(~specimen, ~class, ~basis,
   "Myh_Alamosaurus","ring","consecutive ages, monotone sizes; single-bone record (unverified against Myhrvold S6)",
   "Myh_Apatosaurus","ring","consecutive ages, monotone sizes (unverified)",
@@ -127,7 +147,8 @@ explicit <- "D'Emic|Bybee|Woodward|Hoffman"
 ce <- cr %>% group_by(species, individual=specimen, element, dimension, source) %>%
   summarise(efs=ifelse(any(efs_present), 1L, ifelse(grepl(explicit, source[1]), 0L, 2L)),
             resorb=as.integer(resorption[1] != "absent"), .groups="drop")
-add_ring(cr %>% transmute(species, individual=specimen, element, dimension, age0=age, size, source))
+add_ring(cr %>% transmute(species, individual=specimen, element, dimension, age0=age, size, source,
+                          zone=ifelse(!is.na(zone) & zone=="periosteal", "periosteal", "mark")))
 add_el(ce %>% mutate(kind="ring"))
 add_ind(ce %>% distinct(species, individual))
 # Myhrvold cross-sections: one pseudo-individual per point; identical points collapsed (nrep)
@@ -137,6 +158,12 @@ mx <- myh %>% filter(specimen %in% myh_class$specimen[myh_class$class=="cross"])
 if (nrow(mx)) add_el(mx %>% transmute(species, individual, element, dimension, source, size, nrep, t_add=0, resorb=0L,
                         note="population cross-section point (Myhrvold 2013 S6)"))
 if (nrow(mx)) add_ind(mx %>% transmute(species, individual, age_est=age, age_sd=pmax(0.5, 0.15*age)))
+
+# Maiasaura perinate: one size at known age 0 (Woodward 2015 reference perinate tibia, 2.5 cm), log-SD 0.15
+add_el(tibble(species="Maiasaura_peeblesorum", individual="Maiasaura_perinate", element="tibia", dimension="circumference_mm",
+              source="Woodward et al. 2015 (Paleobiology)", size=25, t_add=0, resorb=0L, efs=0L, size_logsd=0.15,
+              note="reference perinate tibia (one value for the species); size at age 0"))
+add_ind(tibble(species="Maiasaura_peeblesorum", individual="Maiasaura_perinate", age_est=0, age_sd=0.05))
 
 # ============ 2. new ring series =======================================================
 ## Ceratosaurus (Sombathy et al. 2025): femur BYU 881-12893 (8 marks, all in the EFS), tibia MWC 1.
@@ -353,6 +380,9 @@ els <- bind_rows(els) %>% mutate(el_id=paste(individual, element, dimension, sep
 inds <- bind_rows(inds) %>% distinct(species, individual, .keep_all=TRUE)
 stopifnot(!anyDuplicated(els$el_id), !anyDuplicated(inds$individual), all(els$individual %in% inds$individual),
           all(rings$el_id %in% els$el_id[els$kind=="ring"]), all(els$el_id[els$kind=="ring"] %in% rings$el_id))
+# Maiasaura ring elements: marks preserved includes LAGs listed without a circumference
+mi_ <- match(els$individual, mcount$specimen); jj <- els$species == "Maiasaura_peeblesorum" & els$kind == "ring" & !is.na(mi_)
+els$count[jj] <- mcount$nmax[mi_[jj]]
 # count intervals from the printed text: "5 to 6", "2 or 3", "13 to 18" -> [lo, hi]; "at least" -> hi = Inf
 cint <- function(note, count, cmin){
   lo <- count; hi <- count

@@ -6,7 +6,7 @@ suppressMessages({ library(cmdstanr); library(dplyr); library(readr); library(ap
 a <- commandArgs(trailingOnly=TRUE)
 iter <- ifelse(is.na(a[1]), 700L, as.integer(a[1])); chains <- ifelse(is.na(a[2]), 4L, as.integer(a[2]))
 tag <- ifelse(is.na(a[3]), "r35", a[3]); ad <- ifelse(is.na(a[4]), 0.95, as.numeric(a[4])); mtd <- ifelse(is.na(a[5]), 11L, as.integer(a[5])); pre <- ifelse(is.na(a[6]), "r35", a[6])
-root  <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 source(file.path(root,"src/23_tree_helpers.R")); source(file.path(root,"src/32_helpers.R")); source(file.path(root,"src/35_helpers.R"))
 TRAITS <- c("logA","logr","nu","t50")

@@ -105,8 +105,10 @@ for row in long_raw:
 
 maia = []
 for spec, rows in by_spec.items():
+    # LAG rows are labelled "LAG n", except T50, whose two LAGs are printed as bare "1", "2" (fixed 2026-11-14)
+    is_lag = lambda loc: loc.lower().startswith("lag") or loc.strip().isdigit()
     lag_idxs = [int(re.search(r"\d+", x["location"]).group())
-                for x in rows if x["location"].lower().startswith("lag")]
+                for x in rows if is_lag(x["location"])]
     maxlag = max(lag_idxs) if lag_idxs else 0
     for x in rows:
         loc = x["location"].lower()
@@ -114,7 +116,7 @@ for spec, rows in by_spec.items():
             continue
         if loc.startswith("perinate"):
             pos, age = "perinate", 0.0
-        elif loc.startswith("lag"):
+        elif is_lag(loc):
             pos, age = "lag", float(re.search(r"\d+", loc).group())
         elif loc.startswith("periosteal"):
             pos, age = "periosteal", maxlag + 0.5
