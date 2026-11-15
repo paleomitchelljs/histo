@@ -28,7 +28,7 @@ suppressMessages({
   library(ape)
 })
 
-root      <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root      <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 raw       <- file.path(root, "data_raw")
 clean     <- file.path(root, "data_clean")
 dir.create(clean, showWarnings = FALSE)

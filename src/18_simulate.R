@@ -15,7 +15,7 @@
 # =====================================================================
 suppressMessages({ library(ape); library(phytools); library(dplyr); library(readr) })
 set.seed(20260609)
-root  <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); simdir <- file.path(clean,"sim"); dir.create(simdir, showWarnings=FALSE)
 
 tree  <- compute.brlen(read.tree(file.path(clean,"dino_tree.nwk")), method="Grafen")

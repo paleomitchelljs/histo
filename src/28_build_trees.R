@@ -14,7 +14,7 @@
 #     (was sister to Diplodocus). JM 2026-11-13.
 #   * Tyrannosauridae: ((Albertosaurus,Gorgosaurus),Tyrannosaurus). JM 2026-11-13.
 suppressMessages({ library(ape); library(readr); library(dplyr) })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"; clean <- file.path(root,"data_clean")
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) }); clean <- file.path(root,"data_clean")
 
 orn   <- "(Psittacosaurus,(Maiasaura,Hypacrosaurus))"
 sauro <- "((Plateosaurus,Massospondylus),(Mamenchisaurus,(Northampton,(Janenschia,((Apatosaurus,Diplodocus),(Camarasaurus,Alamosaurus))))))"

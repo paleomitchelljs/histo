@@ -13,7 +13,7 @@ suppressMessages({
   library(ape); library(ggplot2); library(dplyr); library(readr)
   library(viridisLite); library(grid); library(brms)
 })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 out  <- file.path(root, "outputs")
 have_net <- requireNamespace("rphylopic", quietly = TRUE) && {
   old <- options(timeout = 4); on.exit(options(old), add = TRUE)

@@ -2,7 +2,7 @@
 # Fetch PhyloPic silhouettes for tips of data_clean/broad_tree.nwk that are not cached yet.
 # Appends to data_clean/phylopic/phylopic_uuids.csv; existing files are left alone.
 suppressMessages({ library(rphylopic); library(ape) })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"; dir <- file.path(root, "data_clean/phylopic")
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) }); dir <- file.path(root, "data_clean/phylopic")
 tips <- read.tree(file.path(root, "data_clean/broad_tree.nwk"))$tip.label
 tips <- tips[!file.exists(file.path(dir, paste0(tips, ".rds")))]
 fb <- list(Diplocynodon=c("Alligator"), Orthosuchus=c("Protosuchus","Crocodyliformes"), Moschorhinus=c("Therocephalia","Theriodontia"),

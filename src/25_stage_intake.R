@@ -18,7 +18,7 @@
 #     circumference (um) -> circumference_mm (x2/1000). No ages in the paper:
 #     age = growth-mark index, resorption = "present". New tip, sister to Alligator.
 suppressMessages({ library(dplyr); library(readr); library(ape) })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); I <- file.path(root,"data_raw/literature_to_add/_intake")
 base_cols <- c("clade","family","species","genus","specimen","element","dimension",
                "zone","lag_index","age","size","is_efs","source","resorption","efs_present","maturity")

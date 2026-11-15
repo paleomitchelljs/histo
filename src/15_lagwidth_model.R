@@ -2,7 +2,7 @@
 # Fit the LAG-width growth-rate model (15_lagwidth_model.stan) on the
 # circumference taxa (radial mm/yr comparable), active-growth rings only.
 suppressMessages({ library(cmdstanr); library(dplyr); library(readr); library(ape); library(posterior); library(ggplot2) })
-root  <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 
 w <- read_csv(file.path(clean,"lag_widths_long.csv"), show_col_types=FALSE) %>%

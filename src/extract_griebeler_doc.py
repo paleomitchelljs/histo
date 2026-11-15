@@ -12,7 +12,7 @@ Output: data_raw/external/griebeler/griebeler_sauropod_long.csv
 import os, re, subprocess, csv, tempfile
 from html.parser import HTMLParser
 
-ROOT = "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+ROOT = os.environ.get("HISTO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOC = os.path.join(ROOT, "data_raw/supplements/pone.0067012.s001.doc")
 OUTDIR = os.path.join(ROOT, "data_raw/external/griebeler"); os.makedirs(OUTDIR, exist_ok=True)
 HTML = os.path.join(OUTDIR, "griebeler_s1.html")

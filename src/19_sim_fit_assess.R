@@ -7,7 +7,7 @@
 # Usage: Rscript 19_sim_fit_assess.R <iid|bm|shift>
 suppressMessages({ library(cmdstanr); library(dplyr); library(readr); library(ape); library(posterior); library(ggplot2) })
 scn <- commandArgs(trailingOnly=TRUE)[1]; if (is.na(scn)) scn <- "iid"
-root  <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); sim <- file.path(clean,"sim"); out <- file.path(root,"outputs")
 
 dat <- read_csv(file.path(sim, paste0("scenario_",scn,"_data.csv")), show_col_types=FALSE)

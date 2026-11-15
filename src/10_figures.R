@@ -10,7 +10,7 @@
 # =====================================================================
 suppressMessages({ library(cmdstanr); library(ape); library(ggplot2); library(dplyr)
   library(readr); library(grid); library(scales); library(rphylopic); library(magick) })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 
 DIVERGING <- c('#b2182b','#d6604d','#f4a582','#fddbc7','#f7f7f7','#d1e5f0','#92c5de','#4393c3','#2166ac')

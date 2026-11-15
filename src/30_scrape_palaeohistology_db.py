@@ -9,7 +9,7 @@ Needs internet. Usage: python3 src/30_scrape_palaeohistology_db.py
 """
 import csv, html, os, re, subprocess, tempfile, time
 BASE = "https://www.developmental-palaeontology.net/palaeohistology/"
-OUT = "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology/data_raw/external/scheyer_palaeohistology_db"
+OUT = os.path.join(os.environ.get("HISTO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data_raw/external/scheyer_palaeohistology_db")
 os.makedirs(os.path.join(OUT, "html"), exist_ok=True)
 JAR = os.path.join(tempfile.mkdtemp(), "cookies.txt")
 def get(url):                                   # curl: system certificate store + cookie jar

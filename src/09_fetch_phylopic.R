@@ -2,7 +2,7 @@
 # Fetch + cache PhyloPic silhouettes for every tip in data_clean/dino_tree.nwk.
 # Saves each as a raster RDS in data_clean/phylopic/ + a uuid table.
 suppressMessages({ library(rphylopic); library(ape) })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 dir  <- file.path(root, "data_clean/phylopic"); dir.create(dir, showWarnings = FALSE, recursive = TRUE)
 tips <- read.tree(file.path(root, "data_clean/dino_tree.nwk"))$tip.label
 

@@ -45,7 +45,7 @@ suppressMessages({ library(dplyr); library(readr); library(ape); library(tibble)
 a <- commandArgs(trailingOnly=TRUE)
 MIN_OBS <- ifelse(is.na(a[1]), 2, as.numeric(a[1])); PRE <- ifelse(is.na(a[2]), "broad", a[2])
 DROP_MYH <- !is.na(a[3]) && a[3] == "nomyh"
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); I <- file.path(root,"data_raw/literature_to_add/_intake")
 rd <- function(...) read_csv(file.path(I, ...), show_col_types=FALSE, col_types=cols(.default="c"))
 num <- function(x) suppressWarnings(as.numeric(gsub("[^0-9.]", "", x)))

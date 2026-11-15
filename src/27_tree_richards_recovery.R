@@ -15,7 +15,7 @@ nreps <- ifelse(is.na(a[1]), 10L, as.integer(a[1])); chunk <- ifelse(is.na(a[2])
 N_PER <- ifelse(is.na(a[3]), 2L, as.integer(a[3]))
 regimes <- if (is.na(a[4])) c("iid","bm","shift","conv") else strsplit(a[4], ",")[[1]]
 set.seed(20261113 + 1000*chunk + 17*N_PER)
-root  <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 source(file.path(root,"src/23_tree_helpers.R")); TRAITS <- c("logA","logr","nu","t50")
 resfile <- file.path(out,"tree_richards_recovery_results.csv")

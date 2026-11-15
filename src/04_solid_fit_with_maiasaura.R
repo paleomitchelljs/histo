@@ -15,7 +15,7 @@
 # =====================================================================
 suppressMessages({ library(brms); library(dplyr); library(readr); library(ggplot2) })
 options(mc.cores = 1, brms.backend = "rstan"); set.seed(1)
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root, "data_clean"); out <- file.path(root, "outputs")
 
 con <- file(file.path(out, "solid_maia_report.txt"), open = "wt")

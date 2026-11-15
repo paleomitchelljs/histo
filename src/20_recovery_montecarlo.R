@@ -9,7 +9,7 @@ suppressMessages({ library(cmdstanr); library(ape); library(dplyr); library(read
 nreps <- as.integer(.args[1]); if (is.na(nreps)) nreps <- 100
 chunk <- as.integer(.args[2]); if (is.na(chunk)) chunk <- 0
 set.seed(20260609 + 1000*chunk)            # distinct reps per chunk (for foreground chunking)
-root  <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 resfile <- file.path(out,"mc_recovery_results.csv")
 

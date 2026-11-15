@@ -5,7 +5,7 @@
 # House style: categorical palette, no titles, white panels.
 suppressMessages({ library(cmdstanr); library(dplyr); library(readr); library(ggplot2); library(tidyr)
   library(patchwork) })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 CATEG <- c('#8dd3c7','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#bc80bd','#ccebc5','#d9d9d9','#ffed6f')
 th <- theme_minimal(base_size=11) +

@@ -3,7 +3,7 @@
 # increments to nu on the expanded cross-Dinosauria tree. Reports which branches
 # carry shape shifts.
 suppressMessages({ library(cmdstanr); library(dplyr); library(readr); library(ape); library(posterior) })
-root  <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 
 dat <- read_csv(file.path(clean,"lag_size_long.csv"), show_col_types=FALSE) %>% filter(!is.na(size), !is.na(age))

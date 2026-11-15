@@ -8,7 +8,7 @@ suppressMessages({ library(cmdstanr); library(dplyr); library(readr); library(ap
 a <- commandArgs(trailingOnly=TRUE)
 iter <- ifelse(is.na(a[1]), 1000L, as.integer(a[1])); chains <- ifelse(is.na(a[2]), 4L, as.integer(a[2]))
 tag <- ifelse(is.na(a[3]), "", paste0("_", a[3]))
-root  <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 source(file.path(root,"src/23_tree_helpers.R"))
 

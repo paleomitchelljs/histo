@@ -3,7 +3,7 @@
 # does the regularized-horseshoe per-branch shift recover the TWO true shift
 # edges (recorded in scenario_shift_truth_edges.csv)?
 suppressMessages({ library(cmdstanr); library(dplyr); library(readr); library(ape); library(posterior) })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); sim <- file.path(clean,"sim"); out <- file.path(root,"outputs")
 
 dat <- read_csv(file.path(sim,"scenario_shift_data.csv"), show_col_types=FALSE)

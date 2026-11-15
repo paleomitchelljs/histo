@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # Clean summary plots for the Monte Carlo recovery study (outputs/mc_recovery_results.csv).
 suppressMessages({ library(dplyr); library(readr); library(tidyr); library(ggplot2) })
-out <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology/outputs"
+out <- file.path(local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) }), "outputs")
 r <- read_csv(file.path(out,"mc_recovery_results.csv"), show_col_types=FALSE)
 r$regime <- factor(r$regime, levels=c("iid","bm","shift"))
 CAT <- c(iid='#80b1d3', bm='#fdb462', shift='#fb8072')

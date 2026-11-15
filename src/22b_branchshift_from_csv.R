@@ -2,7 +2,7 @@
 # Salvage branch-shift recovery from the persisted cmdstan CSV (outputs/bs_csv),
 # in case the R post-processing was OOM-killed after sampling started.
 suppressMessages({ library(dplyr); library(readr); library(ape) })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); sim <- file.path(clean,"sim"); out <- file.path(root,"outputs")
 csv <- list.files(file.path(out,"bs_csv"), pattern="\\.csv$", full.names=TRUE)
 csv <- csv[which.max(file.info(csv)$mtime)]

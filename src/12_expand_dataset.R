@@ -13,7 +13,7 @@
 # Writes EXPANDED data_clean files (backs up the 13-taxon versions as *_v1).
 # =====================================================================
 suppressMessages({ library(dplyr); library(readr); library(readxl); library(ape); library(stringr); library(tidyr) })
-root <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean")
 
 base_cols <- c("clade","family","species","genus","specimen","element","dimension",

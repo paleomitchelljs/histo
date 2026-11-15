@@ -5,7 +5,7 @@
 # in the growth-rate level is estimated with Pagel's lambda + Blomberg's K.
 # Circumference taxa only (radial mm/yr comparable), active-growth rings only.
 suppressMessages({ library(dplyr); library(readr); library(ape); library(phytools); library(ggplot2) })
-root  <- "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 REF <- 2  # reference age (yr) for the reported rate level
 

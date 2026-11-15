@@ -15,7 +15,7 @@ Run with a single integer arg to instead dump that table index as TSV (debug).
 import sys, os, zipfile, re, csv
 import xml.etree.ElementTree as ET
 
-ROOT = "/Users/jmitchell/Library/CloudStorage/Dropbox/Research/00_current_Histology"
+ROOT = os.environ.get("HISTO_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOCX = os.path.join(ROOT, "data_raw/supplements/Supplementary+Figures+and+Tables.docx")
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
