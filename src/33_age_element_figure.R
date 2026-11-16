@@ -12,7 +12,7 @@
 # year through mid-growth, 0.5 / (years from 25% to 75% of the asymptote). It
 # stays comparable across curve shapes, which the Richards k does not once nu
 # varies in sign.
-# Usage: Rscript 33_age_element_figure.R [fit tag=broad] [data prefix=broad] [note printed on the figure] [model=32|35|36|37]
+# Usage: Rscript 33_age_element_figure.R [fit tag=broad] [data prefix=broad] [note printed on the figure] [model=32|35|36|37|38]
 # Colour: ONE colour per taxon = its mid-growth rate, used for its tip branch,
 # silhouette, growth curve and all three ridgelines. Internal branches take the
 # model's node estimate. Dark background; diverging palette centred on the median.
@@ -27,17 +27,17 @@ DIVERGING <- c('#b2182b','#d6604d','#f4a582','#fddbc7','#f7f7f7','#d1e5f0','#92c
 rate_cols <- rev(DIVERGING)                       # slow -> blue, fast -> red
 BG <- '#14161b'; FG <- '#e8e8e8'; FG2 <- '#a9adb5'; RULE <- '#3a3e47'   # dark mode
 
-# 4th argument: model whose output to read (32 default; 35 = src/35_revision_fit.R; 36 = src/36_fit.R; 37 = src/37_fit.R)
-# Models 36 and 37 write fit_m37_r37.rds etc., so pass the fit tag with its underscore (_r37).
+# 4th argument: model whose output to read (32 default; 35 = src/35_revision_fit.R; 36 = src/36_fit.R; 37 = src/37_fit.R; 38 = src/38_fit.R)
+# The script prefixes the tag with "_": pass r37 (not _r37) to read fit_m37_r37.rds.
 model <- ifelse(is.na(a[4]), "32", a[4])
 stems <- switch(model, "32"=c("fit_age_element", "age_element_index"), "35"=c("fit_revision", "revision_index"),
-                "36"=c("fit_m36", "m36_index"), "37"=c("fit_m37", "m37_index"), stop("unknown model ", model))
+                "36"=c("fit_m36", "m36_index"), "37"=c("fit_m37", "m37_index"), "38"=c("fit_m38", "m38_index"), stop("unknown model ", model))
 fit <- readRDS(file.path(out, paste0(stems[1], tag, ".rds")))
 idx <- readRDS(file.path(out, paste0(stems[2], tag, ".rds")))
 sp <- idx$species; S <- length(sp); tm <- idx$tm; P <- tm$P; edge <- tm$edge; B <- tm$B; T <- tm$T
 tos <- idx$tip_of_sp
 dm <- function(v) as_draws_matrix(fit$draws(v))
-delta <- array(as.numeric(dm("delta")), c(nrow(dm("mu_logr")), B, 4)); nd <- dim(delta)[1]
+dd <- dm("delta"); delta <- array(as.numeric(dd), c(nrow(dd), B, ncol(dd) / B)); nd <- dim(delta)[1]   # K = 4 (models 32-37) or 3 (38); logr is trait 2 in both
 mu_r <- as.numeric(dm("mu_logr"))
 logr_sp <- dm("logr_sp"); nu_sp <- dm("nu_sp"); t50_sp <- dm("t50_sp")
 

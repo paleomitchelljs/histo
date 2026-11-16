@@ -1,11 +1,12 @@
 #!/usr/bin/env Rscript
 # Fit model 37 (src/37_age_element_model.stan: model 36 + open-count density +
 # channel exponents only in species with the reference channel) to the tables from src/31_stage_broad.R; writes the M3 rate summaries.
-# Usage: Rscript 37_fit.R [iter=700] [chains=4] [tag=r37] [adapt_delta=0.95] [max_treedepth=11] [data prefix=r36]
+# Usage: Rscript 37_fit.R [iter=700] [chains=4] [tag=r37] [adapt_delta=0.95] [max_treedepth=11] [data prefix=r36] [beta scope=species|individual]
 suppressMessages({ library(cmdstanr); library(dplyr); library(readr); library(ape); library(posterior) })
 a <- commandArgs(trailingOnly=TRUE)
 iter <- ifelse(is.na(a[1]), 700L, as.integer(a[1])); chains <- ifelse(is.na(a[2]), 4L, as.integer(a[2]))
 tag <- ifelse(is.na(a[3]), "r37", a[3]); ad <- ifelse(is.na(a[4]), 0.95, as.numeric(a[4])); mtd <- ifelse(is.na(a[5]), 11L, as.integer(a[5])); pre <- ifelse(is.na(a[6]), "r36", a[6])
+bscope <- ifelse(is.na(a[7]), "species", a[7])
 root  <- local({ f <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value=TRUE)); Sys.getenv("HISTO_ROOT", if (length(f)) normalizePath(file.path(dirname(f[1]), "..")) else getwd()) })
 clean <- file.path(root,"data_clean"); out <- file.path(root,"outputs")
 source(file.path(root,"src/23_tree_helpers.R")); source(file.path(root,"src/32_helpers.R")); source(file.path(root,"src/35_helpers.R")); source(file.path(root,"src/36_helpers.R")); source(file.path(root,"src/37_helpers.R"))
@@ -13,8 +14,9 @@ TRAITS <- c("logA","logr","nu","t50")
 rd <- function(f) as.data.frame(read_csv(file.path(clean,paste0(pre,"_",f)), show_col_types=FALSE))
 tmap <- rd("species_to_tip.csv")
 x <- make_standata37(rd("rings.csv"), rd("elements.csv"), rd("individuals.csv"),
-                     read.tree(file.path(clean,paste0(pre,"_tree.nwk"))), setNames(tmap$phylo_tip, tmap$species))
+                     read.tree(file.path(clean,paste0(pre,"_tree.nwk"))), setNames(tmap$phylo_tip, tmap$species), beta_scope=bscope)
 d <- x$standata
+cat("exponent scope:", bscope, "\n")
 options(width=200)
 cat(sprintf("S %d | tips %d | I %d (%d multi-element, %d with age estimate, %d explicit timing effects) | ring elements %d | marks %d | count-and-size %d (%d sized, %d counted, %d interval counts) | dims %d | channels %d (%d free exponents) | relative intercepts %d | sex species %d\n",
             d$S, d$T, d$I, d$IM, sum(d$age_type), d$IU, d$ER, d$N, d$EC, sum(d$c_has_size), sum(d$c_cnt_type > 0), sum(d$c_cnt_type == 2), d$D, d$C, d$NB, d$NO, d$NSX))
