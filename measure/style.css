@@ -3,7 +3,7 @@
   --accent: #2563eb; --accent-ink: #ffffff; --warn: #b45309; --bad: #b91c1c; --ok: #15803d;
   --stage: #2a2a2e; --sel: #fde047;
   --c-periosteum: #38bdf8; --c-medullary: #fb923c; --c-mark: #4ade80; --c-efs_inner: #a78bfa;
-  --c-label: #f472b6; --c-count: #94a3b8; --c-lac: #fbbf24;
+  --c-label: #f472b6; --c-count: #94a3b8; --c-lac: #fbbf24; --c-ignore: #a1a1aa;
   --c-scale: #ef4444; --c-centre: #fde047;
 }
 @media (prefers-color-scheme: dark) {
@@ -53,8 +53,10 @@ h2:first-child { margin-top: 4px; }
 .caption { margin-top: 8px; color: var(--muted); font-size: 12px; white-space: pre-wrap; }
 .caption summary { cursor: pointer; }
 
-#stage { position: relative; background: var(--stage); min-width: 0; min-height: 0; overflow: hidden; }
-#svg { width: 100%; height: 100%; display: block; cursor: crosshair; outline: none; touch-action: none; }
+#stage { position: relative; background: var(--stage); min-width: 0; min-height: 0; overflow: hidden; display: flex; }
+#svg { flex: 1 1 0; min-width: 0; height: 100%; display: block; cursor: crosshair; outline: none; touch-action: none; }
+#cartoon { flex: 1 1 0; min-width: 0; height: 100%; display: block; border-left: 2px solid #000; cursor: pointer; touch-action: none; }
+#cartoon[hidden] { display: none; }
 #svg.pan { cursor: grab; } #svg.panning { cursor: grabbing; }
 svg .vert, svg .handle { cursor: move; }
 .hint { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,.65); color: #fff; padding: 4px 9px;
@@ -117,6 +119,15 @@ svg .vert, svg .handle { cursor: move; }
 .seg { display: flex; flex-wrap: wrap; gap: 3px; }
 .seg button { padding: 2px 7px; font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }
 .seg button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.seg.col { flex-direction: column; align-items: stretch; margin-top: 6px; }
+.seg.col button { justify-content: flex-start; }
+kbd { font: 10px ui-monospace, monospace; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 3px; margin-left: auto; }
+#featPanel .grid2 { margin-bottom: 5px; } #featPanel .seg button { padding: 1px 6px; font-size: 11px; }
+#featPanel input[type=range] { width: 100%; }
+.legend { list-style: none; padding: 0; margin: 5px 0; }
+.legend li { display: flex; gap: 5px; align-items: center; font-size: 12px; padding: 1px 0; }
+.legend li kbd { margin-left: 0; min-width: 14px; text-align: center; }
+.tools input[type=range] { flex: 1; min-width: 40px; }
 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; grid-template-rows: 50vh auto auto; }

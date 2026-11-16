@@ -12,6 +12,8 @@
   <div class="hgroup">
     <button id="btnOpen" title="Open a folder of section images (with manifest.json if present)">Open folder</button>
     <button id="btnDemo" title="Synthetic section to practise on">Demo</button>
+    <button id="btnLoad" title="Reopen an earlier export of this image (choose its .json and .mask.png) to review or relabel it">Load export</button>
+    <input type="file" id="loadInput" accept=".json,.png" multiple hidden>
     <input type="file" id="dirInput" webkitdirectory multiple hidden>
     <input id="measurer" placeholder="Measurer ID" size="11" title="Your measurer ID or initials">
   </div>
@@ -38,6 +40,7 @@
       <g id="layerShapes"></g>
       <g id="layerVerts"></g>
     </svg>
+    <canvas id="cartoon" hidden title="Features: click one to label it; hover and press 1–6 or X"></canvas>
     <div id="hint" class="hint"></div>
     <div class="pad" aria-label="Pan and zoom">
       <button id="padIn" title="Zoom in (+)">+</button>
@@ -59,6 +62,7 @@
       <button data-tool="pan" class="tool" title="Pan and drag points">Edit</button>
       <button data-tool="scale" class="tool" title="Click both ends of the scale bar">Scale</button>
       <button data-tool="centre" class="tool" title="Click the section centre">Centre</button>
+      <button data-tool="ignore" class="tool" title="Drag a box over other panels, photos or labels so feature detection leaves them out">Ignore</button>
     </div>
     <div id="calibBox" class="row"></div>
     <div class="row adjust">
@@ -80,6 +84,14 @@
 
     <h2>Zones</h2>
     <ul id="zoneList" class="zones"></ul>
+
+    <h2>Features <span class="muted opt">canals, osteons</span></h2>
+    <div class="tools">
+      <button id="btnDetect" class="primary" title="Find candidate features">Detect</button>
+      <button id="btnCartoon" title="Show the colour-coded cartoon beside the image (V)">Cartoon</button>
+      <button data-tool="label" class="tool" title="Click features on the image to label them (L)">Label</button>
+    </div>
+    <div id="featPanel"></div>
 
     <h2>Lacunae <span class="muted opt">optional</span></h2>
     <div class="tools">
@@ -110,8 +122,13 @@
     <tr><td>wheel, + −</td><td>zoom</td></tr>
     <tr><td>arrows, Space-drag</td><td>pan (Shift = big step)</td></tr>
     <tr><td>0</td><td>fit image</td></tr>
+    <tr><td>V</td><td>cartoon beside the image</td></tr>
+    <tr><td>L</td><td>label tool</td></tr>
+    <tr><td>hover + 1–6</td><td>label feature (X not a feature, U clear)</td></tr>
+    <tr><td>F / A</td><td>find similar / accept suggestions</td></tr>
   </table>
 </div>
 <script src="app.js"></script>
+<script src="features.js"></script>
 </body>
 </html>

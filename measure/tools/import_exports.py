@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import Histology Measure exports (JSON, schema 0.1 or 0.2) into flat tables for analysis.
+"""Import Histology Measure exports (JSON, schema 0.1-0.3) into flat tables for analysis.
 
 Everything is recomputed from the raw image-pixel points and the scale bar; the `derived` block in each export
 is used only as a cross-check. All lengths are written in mm (um and cm exports are converted).
@@ -8,12 +8,16 @@ Usage:
     python3 measure/tools/import_exports.py EXPORTS [EXPORTS ...] [--out data_clean] [--prefix digitized_]
 EXPORTS are export files or folders (searched recursively for *.json files that carry `curves`).
 
-Writes <out>/<prefix>{sections,curves,zones,lacunae}.csv:
+Writes <out>/<prefix>{sections,curves,zones,lacunae,features,feature_zones}.csv:
   sections  one row per kept export: identity, section metadata, flags, scores, scale, import issues
   curves    one row per traced curve, innermost first (`radial_rank`), with length, radii, angular coverage and
             two circumference estimates (see README, "Import")
   zones     one row per zone between consecutive boundaries, with its descriptors
   lacunae   one row per counting area: lacunae counted, area (mm2), density (per mm2)
+  features  one row per labelled feature (canal, osteon, ...): label, centroid, area (mm2) and shape, recomputed from
+            its pixel runs, and the zone it lies in (nearest boundary outward from the centre)
+  feature_zones  per zone and label: count, area and area fraction, with the zone's searched area taken from the
+            tool's `derived.features` block (it needs the image, so it cannot be recomputed here)
 
 If the same measurer exported the same image more than once (same figure_id, measurer and repeat flag), only the
 latest export is kept and the others are listed as superseded. Standard library only.
@@ -126,7 +130,8 @@ def star_perimeter(r):
 
 # ---------- reading ----------
 def migrate(d):
-    if d.get("schema_version") == "0.2":
+    if d.get("schema_version") in ("0.2", "0.3"):
+        d.setdefault("features", {"settings": {}, "objects": []})
         return d, None
     if d.get("schema_version") != "0.1":
         return None, f"unknown schema_version {d.get('schema_version')!r}"
@@ -141,6 +146,7 @@ def migrate(d):
         d["section"]["plane"] = "oblique"
     d.setdefault("lacunae", [])
     d["migrated_from"] = "0.1"
+    d["features"] = {"settings": {}, "objects": []}
     return d, None
 
 
@@ -215,7 +221,7 @@ def process(path, d, args):
             "element": task.get("element")}
     curves, zones, counts = [], [], []
     for c in d["curves"]:
-        if not segs_ok(c):
+        if not segs_ok(c) or c["kind"] == "ignore":
             continue
         closed = c["kind"] == "count_area"
         L = sum(dist(a, b) for s in c["segments"] for a, b in zip(s, s[1:]))
@@ -283,6 +289,56 @@ def process(path, d, args):
     if len(lac) - len(inside):
         issues.append(f"{len(lac) - len(inside)} lacunae outside any counting area")
 
+    # features: recompute area, centroid and shape from the pixel runs
+    feat_rows, fz_rows = [], []
+    fs = d.get("features") or {}
+    prof = [(c["id"], binned_radius(c, z)) for c in order] if z else []
+
+    def zone_of(x, y):
+        if not z:
+            return None
+        b, r = int(angle((x, y), z) // BIN) % NB, dist((x, y), z)
+        best = min(((pr[b], cid) for cid, pr in prof if pr[b] is not None and pr[b] >= r), default=None)
+        return best[1] if best else None
+    for o in fs.get("objects", []):
+        runs = o.get("runs") or []
+        n = sx = sy = sxx = syy = sxy = 0
+        for i in range(0, len(runs), 3):
+            y, x0, x1 = runs[i], runs[i + 1], runs[i + 2]
+            m = x1 - x0 + 1
+            sxs = (x0 + x1) * m / 2
+            n += m; sx += sxs; sy += y * m; sxy += y * sxs; syy += y * y * m
+            sxx += (x1 * (x1 + 1) * (2 * x1 + 1) - (x0 - 1) * x0 * (2 * x0 - 1)) / 6
+        if not n:
+            issues.append(f"feature {o.get('id')} has no pixels")
+            continue
+        cx, cy = sx / n, sy / n
+        vxx, vyy, vxy = sxx / n - cx * cx + 1 / 12, syy / n - cy * cy + 1 / 12, sxy / n - cx * cy
+        tr, det = vxx + vyy, vxx * vyy - vxy * vxy
+        disc = math.sqrt(max(tr * tr / 4 - det, 0))
+        l1, l2 = tr / 2 + disc, max(tr / 2 - disc, 1e-6)
+        th = 0.5 * math.atan2(2 * vxy, vxx - vyy)
+        zid = zone_of(cx, cy)
+        feat_rows.append(dict(base, feature_id=o.get("id"), label=o.get("label"), source=o.get("source"),
+                              mask_value=o.get("mask_value"), cx_px=round(cx, 1), cy_px=round(cy, 1), area_px=n,
+                              area_mm2=r4(n / k / k) if k else None,
+                              equiv_diameter_um=r4(2 * math.sqrt(n / math.pi) / k * 1000) if k else None,
+                              elongation=r4(1 - math.sqrt(l2 / l1)), orientation_deg=round(math.degrees(th), 1),
+                              radial_cos=r4(abs(math.cos(th - math.atan2(cy - z[1], cx - z[0])))) if z else None,
+                              zone_outer_curve_id=zid, zone_outer_kind=by_id[zid]["kind"] if zid else None,
+                              zone_outer_mark_index=by_id[zid].get("mark_index") if zid else None))
+    dfe = (d.get("derived") or {}).get("features") or {}
+    u2 = (dfe.get("unit2") or "")[:-1]
+    f2 = TO_MM[u2] ** 2 if u2 in TO_MM else None
+    for zr in dfe.get("by_zone", []):
+        for lab, e in (zr.get("classes") or {}).items():
+            fz_rows.append(dict(base, zone_outer_curve_id=zr.get("zone_outer_id"), zone_outer=zr.get("zone_outer"),
+                                region=dfe.get("region"), label=lab, n=e.get("n"),
+                                area_mm2=r4(e["area"] * f2) if f2 and e.get("area") is not None else None,
+                                zone_region_area_mm2=r4(zr["region_area"] * f2) if f2 and zr.get("region_area") is not None else None,
+                                area_fraction=e.get("area_fraction"),
+                                density_per_mm2=r4(e["n"] / (zr["region_area"] * f2)) if f2 and zr.get("region_area") else None))
+
     # cross-check against the tool's own derived block (lengths only; same unit as the export)
     dv = d.get("derived")
     if dv and k and dv.get("px_per_unit"):
@@ -309,7 +365,10 @@ def process(path, d, args):
                 min_circumference=sec.get("min_circumference"), n_marks=len(marks),
                 n_branches=sum(r["is_branch"] for r in curves), n_labels=sum(r["kind"] == "label" for r in curves),
                 has_periosteum=peri is not None, periosteum_coverage_deg=peri_cov if peri_bins else None,
-                n_zones=len(zones), n_zones_described=sum(r["described"] for r in zones), n_lacunae=len(lac))
+                n_zones=len(zones), n_zones_described=sum(r["described"] for r in zones), n_lacunae=len(lac),
+                n_features=len(feat_rows), feature_region=dfe.get("region"),
+                n_ignore_boxes=sum(c["kind"] == "ignore" for c in d["curves"]),
+                based_on=(d.get("based_on") or {}).get("file"), mask_file=(fs.get("mask") or {}).get("file"))
     # flags and scores are open-ended dictionaries: flatten them with prefixes
     for kf, v in (d.get("flags") or {}).items():
         srow[f"flag_{kf}"] = v
@@ -318,7 +377,7 @@ def process(path, d, args):
     srow["notes"] = (d.get("notes") or "").replace("\n", " ").strip() or None
     srow["validation_warnings"] = "; ".join(d.get("validation_warnings") or []) or None
     srow["import_issues"] = "; ".join(issues) or None
-    return srow, curves, zones, lac_rows
+    return srow, curves, zones, lac_rows, feat_rows, fz_rows
 
 
 def write(path, rows):
@@ -367,17 +426,17 @@ def main(argv=None):
         else:
             latest[key] = (p, d)
 
-    S, C, Z, L = [], [], [], []
+    S, C, Z, L, FT, FZ = [], [], [], [], [], []
     for p, d in sorted(latest.values(), key=lambda x: x[0]):
-        s, c, z, l = process(p, d, args)
-        S.append(s); C += c; Z += z; L += l
+        s, c, z, l, ft, fz = process(p, d, args)
+        S.append(s); C += c; Z += z; L += l; FT += ft; FZ += fz
 
     os.makedirs(args.out, exist_ok=True)
-    for name, rows in (("sections", S), ("curves", C), ("zones", Z), ("lacunae", L)):
+    for name, rows in (("sections", S), ("curves", C), ("zones", Z), ("lacunae", L), ("features", FT), ("feature_zones", FZ)):
         write(os.path.join(args.out, f"{args.prefix}{name}.csv"), rows)
 
     print(f"{len(S)} exports imported -> {os.path.normpath(args.out)}/{args.prefix}*.csv "
-          f"({len(C)} curves, {len(Z)} zones, {len(L)} counting areas)")
+          f"({len(C)} curves, {len(Z)} zones, {len(L)} counting areas, {len(FT)} features)")
     for p in superseded:
         print(f"  superseded by a later export: {p}")
     for p, why in skipped:

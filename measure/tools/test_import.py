@@ -61,6 +61,12 @@ def main():
         if c["kind"] == "mark":
             m = T["marks"][c["mark_index"] - 1]; c["segments"] = [ell(m, 0.2, 0.2 + math.radians(150))]
     docs["full_new"]["curves"][2]["zone"] = {"matrix": "woven", "vasc_density": "high", "vasc_orient": "laminar"}
+    # a 20 x 10 px feature between marks 1 and 2 (on the +x axis); its zone is the one inside mark 2
+    m1, m2 = T["marks"][0], T["marks"][1]
+    x0 = int(T["centre_at_periosteum"][0] + (m1["cx"] - T["centre_at_periosteum"][0]) + (m1["rx"] + m2["rx"]) / 2 * math.cos(m1["rot"]))
+    y0 = int(m1["cy"] + (m1["rx"] + m2["rx"]) / 2 * math.sin(m1["rot"]))
+    runs = [v for y in range(y0, y0 + 10) for v in (y, x0, x0 + 19)]
+    docs["full_new"]["features"] = {"settings": {}, "objects": [{"id": "f1", "label": "canal", "source": "manual", "runs": runs, "mask_value": 1}]}
     old = docs["old"]; old["flags"] = {"section_oblique": True}
     old["curves"].append({"id": "m3b", "kind": "mark", "segments": [ell(T["marks"][2], 1.0, 2.0)], "mark_type": "double_multiple",
                           "linked_to": "m3", "mark_index": 3})
@@ -111,6 +117,10 @@ def main():
     check(z1["inner_kind"] == "medullary" and z1["matrix"] == "woven", "zone inside mark 1 wrong")
     check(next(z for z in Z if z["figure_id"] == "full" and z["outer_kind"] == "periosteum")["inner_curve_id"] == "m8",
           "outermost zone not bounded by the last mark")
+
+    FT = rd("features")
+    check(len(FT) == 1 and FT[0]["zone_outer_curve_id"] == "m2", f"feature zone wrong: {[(f['label'], f['zone_outer_curve_id']) for f in FT]}")
+    check(len(FT) == 1 and abs(float(FT[0]["area_mm2"]) - 200 / k / k) < 1e-4, "feature area wrong")
 
     print("\n".join(fails) if fails else "all checks passed")
     return 1 if fails else 0

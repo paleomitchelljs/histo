@@ -1,12 +1,12 @@
-/* Histology Measure 0.2
+/* Histology Measure 0.3
  * Static, no build step, no server. Images are read from a local folder and never leave the machine.
  * Geometry is stored in IMAGE PIXELS. Derived measurements (lengths, radii, coverage, zone order, lacuna density) are
  * computed at export and written under `derived`; the screen shows only what the measurer needs to act on.
  */
 (function () {
 "use strict";
-const TOOL_VERSION = "0.2.0";
-const SCHEMA_VERSION = "0.2";
+const TOOL_VERSION = "0.3.0";
+const SCHEMA_VERSION = "0.3";
 const IMG_EXT = /\.(png|jpe?g|webp|gif|bmp)$/i;
 
 // Curve kinds. `boundary` kinds bound tissue zones; count_area only bounds a lacuna count.
@@ -17,6 +17,7 @@ const KINDS = {
   label:      { label: "Fluorochrome label", short: "L", color: "var(--c-label)", boundary: true },
   efs_inner:  { label: "EFS inner boundary", short: "EFS", color: "var(--c-efs_inner)", boundary: true },
   count_area: { label: "Count area", short: "Area", color: "var(--c-count)", boundary: false, closed: true },
+  ignore:     { label: "Ignore box", short: "Ign", color: "var(--c-ignore)", boundary: false, closed: true },
 };
 const TAGGABLE = ["mark", "label", "periosteum", "medullary", "efs_inner"];
 const MARK_TYPES = ["LAG", "annulus", "uncertain"];
@@ -56,9 +57,12 @@ const S = { tasks: [], idx: -1, files: new Map(), dirHandle: null, doc: null, to
             popFor: null };
 
 // ---------- storage (per-viewer convenience only; the exported file is the record) ----------
+// Extension points (features.js): open/loaded image, drawing, label-tool clicks, export.
+const hooks = { open: [], loaded: [], render: [], label: [], beforeExport: [], exportFiles: [], derive: [] };
 const store = {
   get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } },
 };
 const keyDoc = (fid) => "hm:doc:" + fid, keyStatus = (fid) => "hm:status:" + fid;
 
@@ -160,6 +164,7 @@ async function openTask(i) {
   layerImg.innerHTML = "";
   el("image", { href: url, x: 0, y: 0, width: dims[0], height: dims[1], id: "theImage" }, layerImg);
   applyFilter(); renderTasks(); renderMeta(); renderPanels(); fit(); setTool("pan");
+  for (const f of hooks.open) f();
 }
 
 function newDoc(t) {
@@ -168,12 +173,15 @@ function newDoc(t) {
            image: { file: t.file, sha256: null, px_width: null, px_height: null },
            measurer: $("measurer").value.trim() || null, repeat: !!(t.assignment && t.assignment.repeat),
            started_at: new Date().toISOString(), time_spent_s: 0,
-           calibration: null, centre: null, section: {}, flags: {}, curves: [], lacunae: [], scores: {}, notes: "" };
+           calibration: null, centre: null, section: {}, flags: {}, curves: [], lacunae: [], scores: {}, notes: "",
+           features: { settings: {}, objects: [] } };
 }
 // 0.1 -> 0.2: double/multiple marks with a pair become branches; "section oblique" becomes the plane.
+// 0.2 -> 0.3: adds `features` (labelled canals, osteons etc.) and the `ignore` curve kind.
 function migrate(d) {
   if (!d) return null;
   if (d.schema_version === SCHEMA_VERSION) return d;
+  if (d.schema_version === "0.2") { d.features = d.features || { settings: {}, objects: [] }; d.schema_version = SCHEMA_VERSION; d.tool_version = TOOL_VERSION; return d; }
   if (d.schema_version !== "0.1") return null;
   for (const c of d.curves || []) if (c.kind === "mark") {
     if (c.mark_type === "double_multiple") { c.mark_type = "LAG"; c.branch_of = c.linked_to || null; }
@@ -183,12 +191,19 @@ function migrate(d) {
   if (d.flags && d.flags.section_oblique) { d.section.plane = "oblique"; delete d.flags.section_oblique; }
   d.lacunae = d.lacunae || [];
   d.migrated_from = "0.1"; d.schema_version = SCHEMA_VERSION; d.tool_version = TOOL_VERSION;
+  d.features = { settings: {}, objects: [] };
   return d;
 }
 function saveDoc() {
   if (!S.doc) return;
   S.doc.notes = $("notes").value;
-  store.set(keyDoc(S.doc.task.figure_id), S.doc);
+  let ok = store.set(keyDoc(S.doc.task.figure_id), S.doc);
+  if (!ok) {   // storage full (labelled features are large): drop drafts of images already exported, then retry
+    for (const t of S.tasks) if (t.figure_id !== S.doc.task.figure_id && store.get(keyStatus(t.figure_id)) === "done") store.del(keyDoc(t.figure_id));
+    ok = store.set(keyDoc(S.doc.task.figure_id), S.doc);
+  }
+  if (!ok && !S.warnedStorage) {
+    S.warnedStorage = true; status("Browser storage is full: autosave is off for this image. Export to keep your work.", true); }
   if (store.get(keyStatus(S.doc.task.figure_id)) !== "done" && (S.doc.curves.length || S.doc.calibration))
     store.set(keyStatus(S.doc.task.figure_id), "prog");
 }
@@ -252,6 +267,8 @@ function updateHint() {
   if (S.tool === "scale") return hint(S.scaleClick ? "Other end of the scale bar" : "One end of the scale bar");
   if (S.tool === "centre") return hint("Click the centre");
   if (S.tool === "count") return hint("Click lacunae · Esc to stop");
+  if (S.tool === "ignore") return hint("Drag a box over panels, photos or labels to leave out · Esc to stop");
+  if (S.tool === "label") return hint("Click a feature to label it · hover + 1–6 / X · Esc to stop");
   if (S.tool === "trace" && S.active) return hint(`Tracing ${curveName(curve(S.active.curveId))} · Enter = gap · Esc = stop`);
   hint("");
 }
@@ -462,6 +479,8 @@ svg.addEventListener("pointerdown", (ev) => {
   }
   if (S.tool === "centre") { pushUndo(); S.doc.centre = rnd(p); setTool("pan"); renderPanels(); return; }
   if (S.tool === "count") { pushUndo(); S.doc.lacunae.push(rnd(p)); renderAll(); renderCount(); return; }
+  if (S.tool === "ignore") { S.drag = { type: "box", a: p, b: p }; svg.setPointerCapture(ev.pointerId); return; }
+  if (S.tool === "label") { for (const f of hooks.label) f(p, ev); return; }
   if (S.tool === "trace" && S.active) addVertex(p);
 });
 svg.addEventListener("pointermove", (ev) => {
@@ -469,10 +488,15 @@ svg.addEventListener("pointermove", (ev) => {
   if (S.drag.type === "pan") { const f = upp(); const d = S.drag;
     S.view.x = d.v.x - (ev.clientX - d.sx) * f; S.view.y = d.v.y - (ev.clientY - d.sy) * f; setView(); }
   else if (S.drag.type === "vert") { S.drag.c.segments[S.drag.si][S.drag.vi] = rnd(p); renderAll(); }
+  else if (S.drag.type === "box") { S.drag.b = p; renderAll(); }
   else if (S.drag.type === "handle") { const w = S.drag.which;
     if (w === "centre") S.doc.centre = rnd(p); else S.doc.calibration[w] = rnd(p); renderAll(); }
 });
-const endDrag = () => { if (S.drag && S.drag.type !== "pan") renderPanels(); S.drag = null; svg.classList.remove("panning"); };
+const endDrag = () => {
+  const d = S.drag;
+  if (d && d.type === "box") { const [x0, x1] = [d.a[0], d.b[0]].sort((a, b) => a - b), [y0, y1] = [d.a[1], d.b[1]].sort((a, b) => a - b);
+    if (x1 - x0 > 3 && y1 - y0 > 3) { pushUndo(); S.doc.curves.push({ id: uid(), kind: "ignore", segments: [[rnd([x0, y0]), rnd([x1, y0]), rnd([x1, y1]), rnd([x0, y1])]] }); } }
+  if (d && d.type !== "pan") renderPanels(); S.drag = null; svg.classList.remove("panning"); renderAll(); };
 svg.addEventListener("pointerup", endDrag); svg.addEventListener("pointercancel", endDrag);
 svg.addEventListener("wheel", (ev) => { if (!S.doc) return; ev.preventDefault();
   zoomAt(toImg(ev), Math.exp(ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0015))); }, { passive: false });
@@ -510,7 +534,7 @@ function renderAll() {
     c.segments.forEach((sg, si) => {
       if (!sg.length) return;
       const pts = sg.map((q) => q.join(",")).join(" ");
-      el(closed ? "polygon" : "polyline", { points: pts, fill: closed ? "rgba(148,163,184,.12)" : "none", stroke: color,
+      el(closed ? "polygon" : "polyline", { points: pts, fill: c.kind === "ignore" ? "rgba(0,0,0,.45)" : closed ? "rgba(148,163,184,.12)" : "none", stroke: color,
         "stroke-width": (isAct || isSel ? 2.2 : 1.4) * sw, "stroke-linejoin": "round", "stroke-linecap": "round",
         "stroke-dasharray": (c.kind === "mark" && (c.mark_type === "uncertain" || c.branch_of)) || closed ? `${6 * k} ${4 * k}` : "",
         opacity: 0.95 }, layerShapes);
@@ -533,12 +557,16 @@ function renderAll() {
     for (const w of ["p1", "p2"]) el("circle", { cx: cal[w][0], cy: cal[w][1], r: r * 1.2, fill: "var(--c-scale)", stroke: "#000",
       "stroke-width": 0.8 * k, "data-handle": w, class: "handle" }, layerVerts);
   }
+  if (S.drag && S.drag.type === "box") { const { a, b } = S.drag;
+    el("rect", { x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]), width: Math.abs(b[0] - a[0]), height: Math.abs(b[1] - a[1]),
+      fill: "rgba(0,0,0,.35)", stroke: "var(--c-ignore)", "stroke-width": 1.5 * k, "stroke-dasharray": `${6 * k} ${4 * k}` }, layerShapes); }
   if (S.scaleClick) el("circle", { cx: S.scaleClick[0], cy: S.scaleClick[1], r: r * 1.2, fill: "var(--c-scale)" }, layerVerts);
   const z = S.doc.centre;
   if (z) { const L = 14 * k;
     el("path", { d: `M${z[0] - L},${z[1]}H${z[0] + L}M${z[0]},${z[1] - L}V${z[1] + L}`, stroke: "var(--c-centre)", "stroke-width": 2 * k }, layerShapes);
     el("circle", { cx: z[0], cy: z[1], r: r * 1.2, fill: "transparent", stroke: "var(--c-centre)", "stroke-width": 1.5 * k,
       "data-handle": "centre", class: "handle" }, layerVerts); }
+  for (const f of hooks.render) f();
 }
 
 // ---------- panels ----------
@@ -574,7 +602,7 @@ function curveDetail(c) {
 }
 function renderCurveList() {
   const ul = $("curveList"); ul.innerHTML = "";
-  const order = ["periosteum", "efs_inner", "label", "mark", "medullary", "count_area"];
+  const order = ["periosteum", "efs_inner", "label", "mark", "medullary", "count_area", "ignore"];
   const cs = [...S.doc.curves].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || (b.mark_index || b.label_index || 0) - (a.mark_index || a.label_index || 0));
   if (!cs.length) { ul.append(h("li", { class: "muted empty" }, "Press New (N) and click along a curve.")); return; }
   for (const c of cs) {
@@ -691,23 +719,49 @@ function derive(d) {
     unit: u, px_per_unit: num(k), reference_for_zone_order: zz.method, curves, zones: zoneRows, lacuna_counts: counts,
     lacunae_outside_areas: d.lacunae.filter((q) => !d.curves.some((c) => c.kind === "count_area" && c.segments[0] && c.segments[0].length > 2 && inPoly(q, c.segments[0]))).length };
 }
+function deriveAll(d) { const out = derive(d); for (const f of hooks.derive) f(d, out); return out; }
+async function writeOut(name, data, type) {
+  if (S.dirHandle) { try { const ex = await S.dirHandle.getDirectoryHandle("exports", { create: true });
+      const fh = await ex.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(data); await w.close(); return "exports/" + name; }
+    catch (e) { console.warn("Could not write into the folder; downloading instead", e); } }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type }));
+  a.download = name; document.body.append(a); a.click(); a.remove(); return "Downloads/" + name;
+}
 async function exportDoc() {
   if (!S.doc) return; saveDoc();
   const v = validate(); if (v.err.length) { renderValidation(); status("Needed before export: " + v.err.join(", ")); return; }
+  const at = new Date().toISOString(), measurer = $("measurer").value.trim();
+  const stamp = at.replace(/[:.]/g, "").replace("T", "_").slice(0, 17);   // YYYY-MM-DD_HHMMSS (UTC)
+  const base = `${S.doc.task.figure_id}__${measurer.replace(/[^\w-]+/g, "")}__${stamp}`;
+  for (const f of hooks.beforeExport) f(S.doc, base);
   const d = JSON.parse(JSON.stringify(S.doc));
-  d.measurer = $("measurer").value.trim(); d.exported_at = new Date().toISOString(); d.validation_warnings = v.warn;
-  d.derived = derive(S.doc);
-  const stamp = d.exported_at.replace(/[:.]/g, "").replace("T", "_").slice(0, 17);   // YYYY-MM-DD_HHMMSS (UTC)
-  const name = `${d.task.figure_id}__${d.measurer.replace(/[^\w-]+/g, "")}__${stamp}.json`;
-  const text = JSON.stringify(d, null, 1);
-  let where = null;
-  if (S.dirHandle) { try { const ex = await S.dirHandle.getDirectoryHandle("exports", { create: true });
-      const fh = await ex.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(text); await w.close(); where = "exports/" + name; }
-    catch (e) { console.warn("Could not write into the folder; downloading instead", e); } }
-  if (!where) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-    a.download = name; document.body.append(a); a.click(); a.remove(); where = "Downloads/" + name; }
+  d.measurer = measurer; d.exported_at = at; d.validation_warnings = v.warn;
+  d.derived = deriveAll(S.doc);
+  const where = await writeOut(base + ".json", JSON.stringify(d, null, 1), "application/json");
+  for (const f of hooks.exportFiles) { const x = await f(S.doc, base); if (x) await writeOut(x.name, x.blob); }
   store.set(keyStatus(d.task.figure_id), "done"); renderTasks(); status(`Saved ${where}`);
 }
+// Reopen an earlier export of this image (and its mask, if chosen too) to review or relabel it. The next export is a
+// new file that records which export it was based on.
+async function loadExport(files) {
+  const js = files.find((f) => /\.json$/i.test(f.name)), mask = files.find((f) => /\.png$/i.test(f.name));
+  if (!js) { status("Choose an export .json (and its .mask.png, if any)."); return; }
+  let d; try { d = JSON.parse(await js.text()); } catch (e) { status("Not readable: " + e.message, true); return; }
+  const fid = d.task && d.task.figure_id, i = S.tasks.findIndex((t) => t.figure_id === fid);
+  if (i < 0) { status(`Open the folder that holds ${fid || "this image"} first.`, true); return; }
+  if (i !== S.idx) await openTask(i);
+  d = migrate(d); if (!d) { status("Unknown export version.", true); return; }
+  d.based_on = { file: js.name, measurer: d.measurer || null, exported_at: d.exported_at || null };
+  for (const k of ["derived", "exported_at", "validation_warnings"]) delete d[k];
+  d.measurer = $("measurer").value.trim() || null; d.started_at = new Date().toISOString(); d.time_spent_s = 0;
+  d.image = Object.assign({}, d.image, S.doc.image);
+  S.doc = d; S.undo = []; S.current = null; S.active = null; closePop();
+  renderMeta(); renderPanels(); renderAll(); saveDoc();
+  for (const f of hooks.loaded) f(mask || null);
+  status(`Loaded ${js.name}${mask ? " with its mask" : ""}. Export saves a new file.`);
+}
+$("btnLoad").addEventListener("click", () => { if (!S.doc) { status("Open the image folder first."); return; } $("loadInput").click(); });
+$("loadInput").addEventListener("change", async (e) => { await loadExport([...e.target.files]); e.target.value = ""; });
 $("btnExport").addEventListener("click", exportDoc);
 $("btnNext").addEventListener("click", () => { if (S.idx + 1 < S.tasks.length) openTask(S.idx + 1); });
 $("btnUndo").addEventListener("click", undo);
@@ -743,6 +797,10 @@ async function demo() {
   S.idx = -1; renderTasks(); openTask(0);
 }
 $("btnDemo").addEventListener("click", demo);
+
+// ---------- API for features.js ----------
+window.HM = { S, $, h, el, svg, layerVerts, hooks, status, touch, uid, seg, row, showPop, closePop, pxPerUnit, KINDS, curveName,
+  resample, angle, angular, dist, inPoly, toImg, upp, setView, zoomAt, setTool, renderAll, renderPanels };
 
 // ---------- start ----------
 $("ver").textContent = TOOL_VERSION;
