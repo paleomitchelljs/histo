@@ -11,25 +11,25 @@
   <div class="brand">Histology Measure <span class="ver" id="ver"></span></div>
   <div class="hgroup">
     <button id="btnOpen" title="Open a folder of section images (with manifest.json if present)">Open folder</button>
-    <button id="btnDemo" title="Generate a synthetic section to try the tools">Demo image</button>
+    <button id="btnDemo" title="Synthetic section to practise on">Demo</button>
     <input type="file" id="dirInput" webkitdirectory multiple hidden>
-    <label class="measurer">Measurer <input id="measurer" placeholder="ID or initials" size="10"></label>
+    <input id="measurer" placeholder="Measurer ID" size="11" title="Your measurer ID or initials">
   </div>
   <div class="hgroup">
     <button id="btnUndo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
-    <button id="btnFit" title="Fit image to view (0)">Fit</button>
-    <button id="btnExport" class="primary" title="Validate and export this image's measurements">Export</button>
-    <button id="btnNext" title="Next task">Next ›</button>
+    <button id="btnHelp" title="Shortcuts (?)">?</button>
+    <button id="btnExport" class="primary" title="Check and export this image">Export</button>
+    <button id="btnNext" title="Next image">Next ›</button>
   </div>
 </header>
 
 <main>
   <aside id="left">
-    <h2>Tasks <span id="taskCount" class="muted"></span></h2>
-    <ul id="taskList"><li class="muted">Open a folder or a demo image.</li></ul>
-    <h2>Image</h2>
+    <h2>Images <span id="taskCount" class="muted"></span></h2>
+    <ul id="taskList"><li class="muted">Open a folder.</li></ul>
+    <h2>Specimen</h2>
     <dl id="meta" class="meta"></dl>
-    <div id="caption" class="caption"></div>
+    <details id="captionBox" class="caption"><summary>Caption</summary><div id="caption"></div></details>
   </aside>
 
   <section id="stage">
@@ -41,55 +41,77 @@
     <div id="hint" class="hint"></div>
     <div class="pad" aria-label="Pan and zoom">
       <button id="padIn" title="Zoom in (+)">+</button>
-      <button data-pan="0,-1" title="Pan up (↑)">▲</button>
+      <button data-pan="0,-1" title="Pan up">▲</button>
       <button id="padOut" title="Zoom out (−)">−</button>
-      <button data-pan="-1,0" title="Pan left (←)">◀</button>
-      <button id="padFit" title="Fit image (0)">⤢</button>
-      <button data-pan="1,0" title="Pan right (→)">▶</button>
+      <button data-pan="-1,0" title="Pan left">◀</button>
+      <button id="padFit" title="Fit (0)">⤢</button>
+      <button data-pan="1,0" title="Pan right">▶</button>
       <span></span>
-      <button data-pan="0,1" title="Pan down (↓)">▼</button>
+      <button data-pan="0,1" title="Pan down">▼</button>
       <span></span>
     </div>
     <div id="status" class="status"></div>
   </section>
 
   <aside id="right">
-    <h2>1 · Frame</h2>
+    <h2>Frame</h2>
     <div class="tools">
-      <button data-tool="pan" class="tool">Pan / edit</button>
-      <button data-tool="scale" class="tool">Scale bar</button>
-      <button data-tool="centre" class="tool">Centre</button>
+      <button data-tool="pan" class="tool" title="Pan and drag points">Edit</button>
+      <button data-tool="scale" class="tool" title="Click both ends of the scale bar">Scale</button>
+      <button data-tool="centre" class="tool" title="Click the section centre">Centre</button>
     </div>
-    <div id="calibBox" class="box"></div>
-    <div class="flags">
-      <label><input type="checkbox" data-flag="no_scale"> No scale</label>
-      <label><input type="checkbox" data-flag="no_centre"> No centre</label>
-      <label><input type="checkbox" data-flag="section_oblique"> Section oblique</label>
-      <label><input type="checkbox" data-flag="deformation_visible"> Deformation visible</label>
-      <label><input type="checkbox" data-flag="outer_cortex_eroded"> Outer cortex eroded</label>
-      <label><input type="checkbox" data-flag="cracks_infill"> Cracks / infill</label>
+    <div id="calibBox" class="row"></div>
+    <div class="row adjust">
+      <label title="Contrast">◐ <input type="range" id="contrast" min="50" max="250" value="100"></label>
+      <label title="Brightness">☀ <input type="range" id="brightness" min="50" max="200" value="100"></label>
     </div>
 
-    <h2>2 · Trace</h2>
+    <h2>Section</h2>
+    <div id="section" class="grid2"></div>
+    <div class="chips" id="flags"></div>
+
+    <h2>Curves</h2>
     <div class="tools">
-      <button id="btnStart" class="primary" title="Start a new curve (tagged as the next growth mark; retag with Tag)">Start</button>
-      <button id="btnStop" title="Stop tracing (Esc). While tracing, Enter leaves a gap and starts a new segment of the same curve.">Stop</button>
-      <button id="btnTag" title="Tag the current curve: what it is, mark index, type, confidence (T)">Tag ▾</button>
+      <button id="btnStart" class="primary" title="New curve, tagged as the next growth mark (N)">New</button>
+      <button id="btnStop" title="Stop tracing (Esc)">Stop</button>
+      <button id="btnTag" title="Tag the selected curve (T)">Tag</button>
     </div>
     <ul id="curveList" class="curves"></ul>
 
-    <h2>3 · Score</h2>
-    <form id="scores" class="scores"></form>
-    <label class="notes">Notes<textarea id="notes" rows="3"></textarea></label>
+    <h2>Zones</h2>
+    <ul id="zoneList" class="zones"></ul>
+
+    <h2>Lacunae <span class="muted opt">optional</span></h2>
+    <div class="tools">
+      <button id="btnArea" title="Trace the counting area (closed polygon)">Area</button>
+      <button data-tool="count" class="tool" title="Click each lacuna; right-click removes">Count</button>
+      <span id="countInfo" class="muted"></span>
+    </div>
+
+    <h2>Whole section</h2>
+    <div id="scores" class="grid2"></div>
+    <textarea id="notes" rows="2" placeholder="Notes"></textarea>
     <div id="validation" class="box"></div>
   </aside>
 </main>
 
-<div id="tagMenu" class="tagmenu" hidden></div>
-<footer>
-  Wheel or +/−: zoom · arrows (Shift = big step) or drag background: pan · click: add point while tracing ·
-  drag point: move · right-click point: delete · Backspace: remove last point · Enter: gap · T: tag · Esc: stop · 0: fit
-</footer>
+<div id="pop" class="pop" hidden></div>
+<div id="help" class="pop help" hidden>
+  <div class="tm-title">Shortcuts</div>
+  <table>
+    <tr><td>N</td><td>new curve</td></tr>
+    <tr><td>click</td><td>add point</td></tr>
+    <tr><td>Enter</td><td>gap: next click starts a new segment</td></tr>
+    <tr><td>Backspace</td><td>remove last point</td></tr>
+    <tr><td>Esc</td><td>stop</td></tr>
+    <tr><td>T</td><td>tag curve</td></tr>
+    <tr><td>drag point</td><td>move it (Edit mode)</td></tr>
+    <tr><td>right-click point</td><td>delete it</td></tr>
+    <tr><td>wheel, + −</td><td>zoom</td></tr>
+    <tr><td>arrows, Space-drag</td><td>pan (Shift = big step)</td></tr>
+    <tr><td>0</td><td>fit image</td></tr>
+  </table>
+</div>
 <script src="app.js"></script>
 </body>
 </html>

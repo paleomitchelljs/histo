@@ -57,6 +57,7 @@
 !/measure/public/icons/**
 
 # ---- build and system clutter ----
+__pycache__/
 node_modules/
 dist/
 .vite/
