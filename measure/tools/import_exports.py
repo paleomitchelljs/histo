@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import Histology Measure exports (JSON, schema 0.1-0.3) into flat tables for analysis.
+"""Import Histology Measure exports (JSON, schema 0.1-0.4) into flat tables for analysis.
 
 Everything is recomputed from the raw image-pixel points and the scale bar; the `derived` block in each export
 is used only as a cross-check. All lengths are written in mm (um and cm exports are converted).
@@ -8,11 +8,16 @@ Usage:
     python3 measure/tools/import_exports.py EXPORTS [EXPORTS ...] [--out data_clean] [--prefix digitized_]
 EXPORTS are export files or folders (searched recursively for *.json files that carry `curves`).
 
-Writes <out>/<prefix>{sections,curves,zones,lacunae,features,feature_zones}.csv:
-  sections  one row per kept export: identity, section metadata, flags, scores, scale, import issues
+Writes <out>/<prefix>{sections,curves,zones,transects,lacunae,features,feature_zones}.csv:
+  sections  one row per kept export: identity, image setup (view, light, other-light image), section metadata,
+            flags, scores (with "can't tell" reasons), mark counts as an interval [count_lo, count_hi], outer-edge
+            preservation (periosteum vs broken edge), skipped steps and their reasons, scale, import issues
   curves    one row per traced curve, innermost first (`radial_rank`), with length, radii, angular coverage and
             two circumference estimates (see README, "Import")
-  zones     one row per zone between consecutive boundaries, with its descriptors
+  zones     one row per zone between consecutive boundaries (or one "field" row for a close-up), with the
+            student's raw answers (obs_*) and the descriptors derived from them by guide.js (rules_version)
+  transects one row per transect crossing: order, kind, mark number, distance from the outer end, radius from
+            the centre and width to the next crossing inward (mm)
   lacunae   one row per counting area: lacunae counted, area (mm2), density (per mm2)
   features  one row per labelled feature (canal, osteon, ...): label, centroid, area (mm2) and shape, recomputed from
             its pixel runs, and the zone it lies in (nearest boundary outward from the centre)
@@ -25,7 +30,10 @@ latest export is kept and the others are listed as superseded. Standard library 
 import argparse, csv, json, math, os, sys
 from collections import defaultdict
 
-BOUNDARY = {"periosteum", "medullary", "mark", "label", "efs_inner"}
+BOUNDARY = {"periosteum", "broken_edge", "medullary", "remodel_front", "mark", "label", "efs_inner"}
+OUTER = {"periosteum", "broken_edge"}
+OBS = ("canal_amount", "canal_pattern", "prim_osteons", "sec_osteons", "matrix_xpl", "lacuna_shape")
+DESC = ("matrix", "vasc_density", "vasc_orient", "remodelling", "prim_osteons", "tissue", "basis_light", "rules_version")
 TO_MM = {"mm": 1.0, "um": 1e-3, "cm": 10.0}
 BIN = 5                      # degrees per angular bin, as in the tool
 NB = 360 // BIN
@@ -130,7 +138,7 @@ def star_perimeter(r):
 
 # ---------- reading ----------
 def migrate(d):
-    if d.get("schema_version") in ("0.2", "0.3"):
+    if d.get("schema_version") in ("0.2", "0.3", "0.4"):
         d.setdefault("features", {"settings": {}, "objects": []})
         return d, None
     if d.get("schema_version") != "0.1":
@@ -179,21 +187,49 @@ def segs_ok(c):
     return any(len(s) for s in c.get("segments", []))
 
 
+def outer_segments(d):
+    return [s for c in d["curves"] if c["kind"] in OUTER for s in c["segments"] if len(s) > 1]
+
+
 def ordered_boundaries(d):
+    """Innermost first. Medullary margin always innermost, outer edge (periosteum, broken edge) always outermost;
+    the rest by distance from the centre, else depth below the outer edge, else kind and index (as in the tool)."""
     bs = [c for c in d["curves"] if c["kind"] in BOUNDARY and not c.get("branch_of") and segs_ok(c)]
     z = d.get("centre")
-    peri = next((c for c in d["curves"] if c["kind"] == "periosteum" and any(len(s) > 1 for s in c["segments"])), None)
+    osegs = outer_segments(d)
     if z:
         method = "centre"
         key = lambda c: sum(dist(q, z) for q in sample(c)) / len(sample(c))
-    elif peri:
+    elif osegs:
         method = "periosteum_distance"
-        key = lambda c: math.inf if c is peri else -sum(dist_to_polyline(q, peri["segments"]) for q in sample(c)) / len(sample(c))
+        key = lambda c: -sum(dist_to_polyline(q, osegs) for q in sample(c)) / len(sample(c))
     else:
         method = "index"
-        rank = {"medullary": 0, "mark": 1, "label": 1, "efs_inner": 2, "periosteum": 3}
+        rank = {"remodel_front": 0, "mark": 1, "label": 1, "efs_inner": 2}
         key = lambda c: rank[c["kind"]] * 1000 + (c.get("mark_index") or c.get("label_index") or 0)
-    return method, sorted(bs, key=key)
+
+    def full(c):
+        if c["kind"] == "medullary":
+            return (-math.inf, 0)
+        if c["kind"] in OUTER:
+            return (math.inf, 0 if c["kind"] == "periosteum" else 1)
+        return (key(c), 0)
+    return method, sorted(bs, key=full)
+
+
+def zone_boundaries(order):
+    """The outer edge counts once: the periosteum if traced, else the broken edge."""
+    outers = [c for c in order if c["kind"] in OUTER]
+    return [c for c in order if c["kind"] not in OUTER] + outers[:1]
+
+
+def coverage(c_list, z):
+    bins = set()
+    for c in c_list:
+        for s in c["segments"]:
+            for q in resample(s):
+                bins.add(int(angle(q, z) // BIN) % NB)
+    return len(bins) * BIN
 
 
 # ---------- one export ----------
@@ -212,6 +248,7 @@ def process(path, d, args):
     rank = {c["id"]: i + 1 for i, c in enumerate(order)}
 
     peri = next((c for c in order if c["kind"] == "periosteum"), None)
+    osegs = outer_segments(d)
     peri_bins = binned_radius(peri, z) if (peri and z) else None
     peri_cov = arc(peri_bins)[0] if peri_bins else 0
     peri_circ = star_perimeter(fill_circular(peri_bins)) if peri_bins and peri_cov >= 330 else None
@@ -221,7 +258,7 @@ def process(path, d, args):
             "element": task.get("element")}
     curves, zones, counts = [], [], []
     for c in d["curves"]:
-        if not segs_ok(c) or c["kind"] == "ignore":
+        if not segs_ok(c) or c["kind"] in ("ignore", "transect"):
             continue
         closed = c["kind"] == "count_area"
         L = sum(dist(a, b) for s in c["segments"] for a, b in zip(s, s[1:]))
@@ -256,23 +293,57 @@ def process(path, d, args):
                     row["circ_peri_scaled_mm"] = r4(mm(peri_circ * sum(rat) / len(rat)))
             elif c is peri and peri_circ:
                 row["circ_peri_scaled_mm"] = r4(mm(peri_circ))
-        elif peri and c is not peri and row["n_points"] > 0:     # wedge with no centre: depth below the periosteum
-            ds = [dist_to_polyline(q, peri["segments"]) for s in c["segments"] for q in resample(s)]
+        elif osegs and c["kind"] not in OUTER and row["n_points"] > 0:   # wedge with no centre: depth below the outer edge
+            ds = [dist_to_polyline(q, osegs) for s in c["segments"] for q in resample(s)]
             row["depth_mean_mm"] = r4(mm(sum(ds) / len(ds)))
         curves.append(row)
 
-    for i, c in enumerate(order):
+    def zone_row(zd, **kw):
+        ob = zd.get("obs") or {}
+        r = dict(base, zone_rank=len(zones) + 1, **kw)
+        r.update({f: zd.get(f) for f in DESC})
+        r.update({f"obs_{f}": ob.get(f) for f in OBS})
+        r.update(varies=zd.get("varies"), legacy=zd.get("legacy"),
+                 described=any(zd.get(f) for f in ("matrix", "vasc_density", "vasc_orient", "remodelling", "tissue")))
+        return r
+    zb = zone_boundaries(order)
+    for i, c in enumerate(zb):
         if c["kind"] == "medullary":
             continue
-        inner = order[i - 1] if i > 0 else None
-        zd = c.get("zone") or {}
-        zones.append(dict(base, zone_rank=len(zones) + 1, inner_curve_id=inner["id"] if inner else None,
-                          inner_kind=inner["kind"] if inner else None,
-                          inner_mark_index=inner.get("mark_index") if inner else None,
-                          outer_curve_id=c["id"], outer_kind=c["kind"], outer_mark_index=c.get("mark_index"),
-                          matrix=zd.get("matrix"), vasc_density=zd.get("vasc_density"), vasc_orient=zd.get("vasc_orient"),
-                          remodelling=zd.get("remodelling"), varies=zd.get("varies"),
-                          described=any(zd.get(f) for f in ("matrix", "vasc_density", "vasc_orient", "remodelling"))))
+        inner = zb[i - 1] if i > 0 else None
+        zones.append(zone_row(c.get("zone") or {}, inner_curve_id=inner["id"] if inner else None,
+                              inner_kind=inner["kind"] if inner else None,
+                              inner_mark_index=inner.get("mark_index") if inner else None,
+                              outer_curve_id=c["id"], outer_kind=c["kind"], outer_mark_index=c.get("mark_index")))
+    if not zones and d.get("field"):
+        zones.append(zone_row(d["field"], inner_curve_id=None, inner_kind="field", inner_mark_index=None,
+                              outer_curve_id=None, outer_kind="field", outer_mark_index=None))
+
+    # transects: crossings ordered from the outer end; marks numbered 1 = innermost mark crossing on the transect
+    tr_rows = []
+    for ti, c in enumerate([c for c in d["curves"] if c["kind"] == "transect" and c["segments"] and len(c["segments"][0]) == 2]):
+        a, b = c["segments"][0]
+        xs = sorted(c.get("crossings") or [], key=lambda x: x.get("t", 0))
+        n_m = sum(x.get("kind") == "mark" for x in xs)
+        mi, prev = n_m + 1, None
+        ends = c.get("ends") or {}
+        pts = [("outer_end", a, None)] + [(x.get("kind"), x["p"], x) for x in xs] + [("inner_end", b, None)]
+        rows = []
+        for j, (kind, p, x) in enumerate(pts):
+            idx = None
+            if kind == "mark":
+                mi -= 1
+                idx = x.get("mark_index") if x.get("index_auto") is False else mi
+            rows.append(dict(base, transect_id=c["id"], transect_n=ti + 1, order_from_outer=j, kind=kind,
+                             end_type=ends.get("outer") if kind == "outer_end" else ends.get("inner") if kind == "inner_end" else None,
+                             mark_index=idx, dist_from_outer_mm=r4(mm(dist(p, a))),
+                             radius_mm=r4(mm(dist(p, z))) if z else None,
+                             angle_deg=round(angle(p, z), 1) if z else None, x_px=round(p[0], 1), y_px=round(p[1], 1)))
+        for j in range(len(rows) - 1):
+            rows[j]["width_to_next_inward_mm"] = r4(rows[j + 1]["dist_from_outer_mm"] - rows[j]["dist_from_outer_mm"]) if k else None
+        if not n_m:
+            issues.append(f"transect {ti + 1} has no mark crossings")
+        tr_rows += rows
 
     lac = d.get("lacunae") or []
     inside = set()
@@ -292,7 +363,7 @@ def process(path, d, args):
     # features: recompute area, centroid and shape from the pixel runs
     feat_rows, fz_rows = [], []
     fs = d.get("features") or {}
-    prof = [(c["id"], binned_radius(c, z)) for c in order] if z else []
+    prof = [(c["id"], binned_radius(c, z)) for c in zb] if z else []
 
     def zone_of(x, y):
         if not z:
@@ -354,7 +425,38 @@ def process(path, d, args):
     idxs = [r["mark_index"] for r in marks if r["mark_index"] is not None]
     if len(idxs) != len(set(idxs)):
         issues.append("duplicate mark indices")
-    srow = dict(base, citation=task.get("citation"), view=task.get("view"), light=task.get("light"),
+    su = d.get("setup") or {}
+    comp = su.get("companion") or {}
+    cnt = d.get("counts") or {}
+    tr_marks = max([sum(1 for r in tr_rows if r["transect_id"] == tid and r["kind"] == "mark")
+                    for tid in {r["transect_id"] for r in tr_rows}] or [0])
+    vis = cnt.get("visible_marks")
+    lo = max(len(marks_main := [c for c in d["curves"] if c["kind"] == "mark" and not c.get("branch_of") and segs_ok(c)]),
+             tr_marks, vis or 0)
+    hi = vis if vis is not None and not cnt.get("visible_at_least") and vis >= lo else None
+    if vis is not None and not cnt.get("visible_at_least") and vis < lo:
+        issues.append(f"count {vis} is below the marks traced or crossed ({lo})")
+    peri_c = [c for c in d["curves"] if c["kind"] == "periosteum" and segs_ok(c)]
+    brk_c = [c for c in d["curves"] if c["kind"] == "broken_edge" and segs_ok(c)]
+    pcov, bcov = (coverage(peri_c, z), coverage(brk_c, z)) if z else (None, None)
+    steps = d.get("steps") or {}
+    srow = dict(base, citation=task.get("citation"), view=su.get("view") or task.get("view"), light=su.get("light") or task.get("light"),
+                task_view=task.get("view"), task_light=task.get("light"),
+                companion_file=comp.get("file"), companion_light=comp.get("light"), companion_alignment=comp.get("transform_method"),
+                centre_method=d.get("centre_method") or ("clicked" if z else None),
+                centre_fit_method=(d.get("centre_fit") or {}).get("method"), centre_fit_arc_deg=(d.get("centre_fit") or {}).get("arc_deg"),
+                n_marks_traced=len(marks_main), n_transects=len({r["transect_id"] for r in tr_rows}), max_marks_on_transect=tr_marks,
+                count_visible=vis, count_at_least=cnt.get("visible_at_least"), count_lo=lo if (lo or vis is not None) else None, count_hi=hi,
+                efs_lines_min=cnt.get("efs_lines_min"),
+                has_broken_edge=bool(brk_c), has_remodel_front=any(c["kind"] == "remodel_front" and segs_ok(c) for c in d["curves"]),
+                periosteum_cov_deg=pcov, broken_edge_cov_deg=bcov,
+                # whole sections with a centre: share of the circle without periosteum (broken edges are often radial
+                # cracks, so their own coverage understates the loss); otherwise broken edge vs periosteum coverage
+                outer_broken_share=(r4(1 - pcov / 360) if z and (su.get("view") or "whole") == "whole" else
+                                    r4(bcov / (pcov + bcov)) if z and (pcov or bcov) else
+                                    1.0 if brk_c and not peri_c else 0.0 if peri_c else None),
+                rules_version=d.get("rules_version"),
+                steps_skipped="; ".join(f"{k}: {v.get('reason')}" for k, v in steps.items() if (v or {}).get("status") == "skipped") or None,
                 quality_tier=task.get("quality_tier"), repeat=d.get("repeat"), schema_version=d.get("schema_version"),
                 migrated_from=d.get("migrated_from"), tool_version=d.get("tool_version"),
                 exported_at=d.get("exported_at"), time_spent_s=d.get("time_spent_s"),
@@ -377,7 +479,7 @@ def process(path, d, args):
     srow["notes"] = (d.get("notes") or "").replace("\n", " ").strip() or None
     srow["validation_warnings"] = "; ".join(d.get("validation_warnings") or []) or None
     srow["import_issues"] = "; ".join(issues) or None
-    return srow, curves, zones, lac_rows, feat_rows, fz_rows
+    return srow, curves, zones, tr_rows, lac_rows, feat_rows, fz_rows
 
 
 def write(path, rows):
@@ -426,17 +528,18 @@ def main(argv=None):
         else:
             latest[key] = (p, d)
 
-    S, C, Z, L, FT, FZ = [], [], [], [], [], []
+    S, C, Z, T, L, FT, FZ = [], [], [], [], [], [], []
     for p, d in sorted(latest.values(), key=lambda x: x[0]):
-        s, c, z, l, ft, fz = process(p, d, args)
-        S.append(s); C += c; Z += z; L += l; FT += ft; FZ += fz
+        s, c, z, t, l, ft, fz = process(p, d, args)
+        S.append(s); C += c; Z += z; T += t; L += l; FT += ft; FZ += fz
 
     os.makedirs(args.out, exist_ok=True)
-    for name, rows in (("sections", S), ("curves", C), ("zones", Z), ("lacunae", L), ("features", FT), ("feature_zones", FZ)):
+    for name, rows in (("sections", S), ("curves", C), ("zones", Z), ("transects", T), ("lacunae", L), ("features", FT),
+                       ("feature_zones", FZ)):
         write(os.path.join(args.out, f"{args.prefix}{name}.csv"), rows)
 
     print(f"{len(S)} exports imported -> {os.path.normpath(args.out)}/{args.prefix}*.csv "
-          f"({len(C)} curves, {len(Z)} zones, {len(L)} counting areas, {len(FT)} features)")
+          f"({len(C)} curves, {len(Z)} zones, {len(T)} transect points, {len(L)} counting areas, {len(FT)} features)")
     for p in superseded:
         print(f"  superseded by a later export: {p}")
     for p, why in skipped:

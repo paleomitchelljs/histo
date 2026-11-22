@@ -8,30 +8,32 @@
 </head>
 <body>
 <header>
+  <button id="btnDrawer" class="icon">☰</button>
   <div class="brand">Histology Measure <span class="ver" id="ver"></span></div>
-  <div class="hgroup">
-    <button id="btnOpen" title="Open a folder of section images (with manifest.json if present)">Open folder</button>
-    <button id="btnDemo" title="Synthetic section to practise on">Demo</button>
-    <button id="btnLoad" title="Reopen an earlier export of this image (choose its .json and .mask.png) to review or relabel it">Load export</button>
-    <input type="file" id="loadInput" accept=".json,.png" multiple hidden>
-    <input type="file" id="dirInput" webkitdirectory multiple hidden>
-    <input id="measurer" placeholder="Measurer ID" size="11" title="Your measurer ID or initials">
+  <div class="nav">
+    <button id="btnPrev" class="icon">‹</button>
+    <span id="taskName" class="taskname">No image</span>
+    <button id="btnNext" class="icon">›</button>
   </div>
   <div class="hgroup">
-    <button id="btnUndo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
-    <button id="btnHelp" title="Shortcuts (?)">?</button>
-    <button id="btnExport" class="primary" title="Check and export this image">Export</button>
-    <button id="btnNext" title="Next image">Next ›</button>
+    <input id="measurer" placeholder="Your initials" size="10">
+    <button id="btnUndo" class="icon" title="Undo (Ctrl/Cmd+Z)">↶</button>
+    <button id="btnHelp" class="icon" title="Shortcuts (?)">?</button>
+    <button id="btnExport" class="primary">Export</button>
   </div>
 </header>
 
 <main>
-  <aside id="left">
+  <aside id="drawer" hidden>
+    <div class="tools">
+      <button id="btnOpen" class="primary">Open folder</button>
+      <button id="btnDemo">Demo</button>
+      <button id="btnLoad">Load export</button>
+    </div>
+    <input type="file" id="loadInput" accept=".json,.png" multiple hidden>
+    <input type="file" id="dirInput" webkitdirectory multiple hidden>
     <h2>Images <span id="taskCount" class="muted"></span></h2>
     <ul id="taskList"><li class="muted">Open a folder.</li></ul>
-    <h2>Specimen</h2>
-    <dl id="meta" class="meta"></dl>
-    <details id="captionBox" class="caption"><summary>Caption</summary><div id="caption"></div></details>
   </aside>
 
   <section id="stage">
@@ -40,70 +42,69 @@
       <g id="layerShapes"></g>
       <g id="layerVerts"></g>
     </svg>
-    <canvas id="cartoon" hidden title="Features: click one to label it; hover and press 1–6 or X"></canvas>
+    <canvas id="cartoon" hidden></canvas>
     <div id="hint" class="hint"></div>
-    <div class="pad" aria-label="Pan and zoom">
+    <div class="pad" aria-label="Zoom">
       <button id="padIn" title="Zoom in (+)">+</button>
-      <button data-pan="0,-1" title="Pan up">▲</button>
       <button id="padOut" title="Zoom out (−)">−</button>
-      <button data-pan="-1,0" title="Pan left">◀</button>
       <button id="padFit" title="Fit (0)">⤢</button>
-      <button data-pan="1,0" title="Pan right">▶</button>
-      <span></span>
-      <button data-pan="0,1" title="Pan down">▼</button>
-      <span></span>
+      <button id="padSwap" title="Switch to the other-light image (P)" hidden>◑</button>
+    </div>
+    <div class="adjust" aria-label="Image display">
+      <label>◐ <input type="range" id="contrast" min="50" max="250" value="100"></label>
+      <label>☀ <input type="range" id="brightness" min="50" max="200" value="100"></label>
     </div>
     <div id="status" class="status"></div>
+    <div id="welcome" class="welcome">
+      <h1>Histology Measure</h1>
+      <div class="tools center">
+        <button id="btnOpen2" class="primary">Open folder</button>
+        <button id="btnDemo2">Try the demo</button>
+      </div>
+    </div>
   </section>
 
   <aside id="right">
-    <h2>Frame</h2>
-    <div class="tools">
-      <button data-tool="pan" class="tool" title="Pan and drag points">Edit</button>
-      <button data-tool="scale" class="tool" title="Click both ends of the scale bar">Scale</button>
-      <button data-tool="centre" class="tool" title="Click the section centre">Centre</button>
-      <button data-tool="ignore" class="tool" title="Drag a box over other panels, photos or labels so feature detection leaves them out">Ignore</button>
+    <div id="ident" class="ident"></div>
+    <nav id="rail" class="rail"></nav>
+    <div id="cards">
+      <section class="card" data-step="image"><div class="body" id="body-image"></div></section>
+      <section class="card" data-step="scale"><div class="body" id="body-scale"></div></section>
+      <section class="card" data-step="outline"><div class="body" id="body-outline"></div></section>
+      <section class="card" data-step="marks"><div class="body" id="body-marks"></div></section>
+      <section class="card" data-step="tissue"><div class="body" id="body-tissue"></div></section>
+      <section class="card" data-step="bone"><div class="body" id="body-bone"></div></section>
+      <section class="card" data-step="more">
+        <div class="body" id="body-more"></div>
+        <details class="fold" id="foldFeatures">
+          <summary>Feature finder</summary>
+          <div class="tools">
+            <button id="btnDetect" class="primary">Detect</button>
+            <button id="btnCartoon">Cartoon</button>
+            <button data-tool="label" class="tool">Label</button>
+          </div>
+          <div id="featPanel"></div>
+        </details>
+        <details class="fold" id="foldLacunae">
+          <summary>Osteocyte lacunae</summary>
+          <div class="tools">
+            <button id="btnArea">Area</button>
+            <button data-tool="count" class="tool">Count</button>
+            <span id="countInfo" class="muted"></span>
+          </div>
+        </details>
+        <details class="fold" id="foldIgnore">
+          <summary>Ignore boxes</summary>
+          <div class="tools"><button data-tool="ignore" class="tool">Ignore box</button></div>
+        </details>
+      </section>
+      <section class="card" data-step="export"><div class="body" id="body-export"></div></section>
     </div>
-    <div id="calibBox" class="row"></div>
-    <div class="row adjust">
-      <label title="Contrast">◐ <input type="range" id="contrast" min="50" max="250" value="100"></label>
-      <label title="Brightness">☀ <input type="range" id="brightness" min="50" max="200" value="100"></label>
+    <div class="cardnav">
+      <button id="stepBack">‹ Back</button>
+      <span id="stepCount" class="muted"></span>
+      <button id="stepNext" class="primary">Next ›</button>
     </div>
-
-    <h2>Section</h2>
-    <div id="section" class="grid2"></div>
-    <div class="chips" id="flags"></div>
-
-    <h2>Curves</h2>
-    <div class="tools">
-      <button id="btnStart" class="primary" title="New curve, tagged as the next growth mark (N)">New</button>
-      <button id="btnStop" title="Stop tracing (Esc)">Stop</button>
-      <button id="btnTag" title="Tag the selected curve (T)">Tag</button>
-    </div>
-    <ul id="curveList" class="curves"></ul>
-
-    <h2>Zones</h2>
-    <ul id="zoneList" class="zones"></ul>
-
-    <h2>Features <span class="muted opt">canals, osteons</span></h2>
-    <div class="tools">
-      <button id="btnDetect" class="primary" title="Find candidate features">Detect</button>
-      <button id="btnCartoon" title="Show the colour-coded cartoon beside the image (V)">Cartoon</button>
-      <button data-tool="label" class="tool" title="Click features on the image to label them (L)">Label</button>
-    </div>
-    <div id="featPanel"></div>
-
-    <h2>Lacunae <span class="muted opt">optional</span></h2>
-    <div class="tools">
-      <button id="btnArea" title="Trace the counting area (closed polygon)">Area</button>
-      <button data-tool="count" class="tool" title="Click each lacuna; right-click removes">Count</button>
-      <span id="countInfo" class="muted"></span>
-    </div>
-
-    <h2>Whole section</h2>
-    <div id="scores" class="grid2"></div>
-    <textarea id="notes" rows="2" placeholder="Notes"></textarea>
-    <div id="validation" class="box"></div>
   </aside>
 </main>
 
@@ -111,23 +112,25 @@
 <div id="help" class="pop help" hidden>
   <div class="tm-title">Shortcuts</div>
   <table>
-    <tr><td>N</td><td>new curve</td></tr>
-    <tr><td>click</td><td>add point</td></tr>
-    <tr><td>Enter</td><td>gap: next click starts a new segment</td></tr>
-    <tr><td>Backspace</td><td>remove last point</td></tr>
+    <tr><td>[ ]</td><td>previous / next step</td></tr>
+    <tr><td>N</td><td>new growth mark</td></tr>
+    <tr><td>click</td><td>add a point</td></tr>
+    <tr><td>Enter</td><td>gap: the next click starts a new piece of the same line</td></tr>
+    <tr><td>Backspace</td><td>remove the last point</td></tr>
     <tr><td>Esc</td><td>stop</td></tr>
-    <tr><td>T</td><td>tag curve</td></tr>
-    <tr><td>drag point</td><td>move it (Edit mode)</td></tr>
-    <tr><td>right-click point</td><td>delete it</td></tr>
+    <tr><td>T</td><td>edit the selected line</td></tr>
+    <tr><td>P</td><td>switch to the other-light image</td></tr>
+    <tr><td>drag a point</td><td>move it (when not tracing)</td></tr>
+    <tr><td>right-click a point</td><td>delete it</td></tr>
     <tr><td>wheel, + −</td><td>zoom</td></tr>
-    <tr><td>arrows, Space-drag</td><td>pan (Shift = big step)</td></tr>
-    <tr><td>0</td><td>fit image</td></tr>
-    <tr><td>V</td><td>cartoon beside the image</td></tr>
-    <tr><td>L</td><td>label tool</td></tr>
-    <tr><td>hover + 1–6</td><td>label feature (X not a feature, U clear)</td></tr>
+    <tr><td>drag, arrows</td><td>pan (Shift = big step; Space-drag while tracing)</td></tr>
+    <tr><td>0</td><td>fit the image</td></tr>
+    <tr><td>V / L</td><td>feature cartoon / label tool</td></tr>
+    <tr><td>hover + 1–6</td><td>label a feature (X not a feature, U clear)</td></tr>
     <tr><td>F / A</td><td>find similar / accept suggestions</td></tr>
   </table>
 </div>
+<script src="guide.js"></script>
 <script src="app.js"></script>
 <script src="features.js"></script>
 </body>

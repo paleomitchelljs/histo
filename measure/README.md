@@ -1,57 +1,76 @@
-# Histology Measure 0.3
+# Histology Measure 0.4
 
-A browser tool for tracing bone-histology section images. You trace curves (growth marks, fluorochrome labels,
-periosteum, medullary margin, EFS inner boundary), describe the tissue zones between them, find and label features
-(vascular canals, primary and secondary osteons, resorption cavities), and optionally count osteocyte lacunae. It
-exports one JSON file per image, plus a mask PNG when features were found.
+A browser tool for recording bone-histology section images: scale, outline, growth marks, tissue and a few
+whole-bone observations. You get one JSON file per image. Images never leave your computer: the page reads a local
+folder in place and uploads nothing. It is static HTML, CSS and JS, with no build step and no server.
 
-Images never leave your computer. The page reads a local folder in place and uploads nothing. It is static HTML,
-CSS and JS: no build step, no server.
+## Quick start
 
-The screen shows only what you need to act on. Lengths, radii, angular coverage, zone order and lacuna density
-are computed at export and written to the file under `derived`.
+The tool itself shows no instructions or interpretation (a research digitizer, not a teaching tool); this
+section is the protocol.
 
-## Run it
+1. Serve the folder (`python3 -m http.server 8000 -d measure`), open http://localhost:8000 in Chrome or Edge,
+   type your initials in the top bar, and **Open folder** (or **Try the demo**).
+2. Work through the steps in the right-hand panel. **Next ›** or `]` moves on; the rail at the top shows what is
+   done (✓), skipped (–) or not needed (faded).
+   - **Image**: what it shows (whole section / part / close-up / nothing usable) and how it was lit. If the folder
+     has a crossed-polars photo of the same section, pick it here and **Align** it with two landmarks. **P** then
+     switches between the two.
+   - **Scale**: click both ends of the scale bar and check the length.
+   - **Outline**: trace the *periosteum* where the real outer surface survives and the *broken edge* where it
+     doesn't; trace the *medullary margin*, and the *remodelling front* if secondary bone has wiped out the inner
+     marks. Then set the centre: **Click it**, **Fit from outline**, or **No centre** (wedges).
+   - **Growth marks**: trace each mark (**Growth mark** or `N`, click along it, `Enter` to jump a crack, `Esc` to finish). Marks are
+     numbered from the inside out automatically. For faint or broken sections, switch to **Transect**. Then give your total count, ticking "at least" if some may be hidden.
+   - **Tissue**: answer the picture questions for each zone. **Copy to undescribed zones** saves repetition.
+   - **Whole bone**: EFS, how far secondary osteons reach, inner circumferential layer, medullary bone, quality.
+   - **Export**: fix anything marked ✕, then **Export** and **Next image**.
+3. If you can't do a step, pick a reason under **Not done** at the bottom of the card. If you can't
+   answer a question, press **Can't tell** and say why. "Can't tell" is useful data, so never guess.
 
-- Serve the folder: `python3 -m http.server 8000 -d measure`, then open http://localhost:8000 in Chrome or Edge.
-  Exports then go straight into `<image folder>/exports/`. Double-clicking `index.html` also works, but exports
-  then go to Downloads.
-- Browsers cannot show TIFF. `python3 measure/tools/prepare_batch.py <tiff folder> <out folder> [--citation ...]
-  [--taxon ...] [--scale-value "1000 um"]` writes lossless PNGs and a manifest to open.
-- **Demo** generates a practice section. **Open folder** on `measure/fixtures/synthetic/` gives three synthetic
-  sections with a manifest (regenerate them with `python3 measure/tools/make_fixtures.py`).
+Drag to pan, wheel to zoom, `0` fits, `[` `]` change step, `?` lists all shortcuts. When you are not tracing, click
+a line to select it, drag its points to move them, and right-click a point to delete it.
 
-## Per image
+## What gets recorded, and why
 
-1. Measurer ID (top bar; remembered).
-2. **Scale**: click both ends of the bar. The length is pre-filled from the manifest's `scale_value`; check it.
-3. **Centre**: click it, or toggle **No centre** for wedges and fragments. **Ignore**: drag a box over other
-   panels, inset photos, arrows or labels; feature detection leaves those out.
-4. **Section**: position along the shaft, plane, and whether it is the minimum circumference.
-5. **New** (N) for each curve, then click along it. Each new curve starts as the next growth mark (1 = innermost
-   preserved). Use **Tag** (T) to change what it is:
-   - *growth mark*: index, type (LAG / annulus / uncertain), confidence 1–3, inside EFS;
-   - *branch*: a mark that splits off another over part of the cortex. Trace only the split part and set
-     **Branch of** to the main mark. It takes the main mark's index and is drawn dashed, labelled e.g. `2b`;
-   - *fluorochrome label*: index, dye, injection date and/or the animal's age in days at injection;
-   - periosteum, medullary margin, EFS inner boundary.
-6. **Zones** fill in once boundaries are traced, listed outer to inner (`2 → 3` is the tissue between marks 2
-   and 3). Click one to set matrix, vascular density, canal orientation and secondary osteons. **Same as inner**
-   copies the zone just inside. Orange dashes = not described yet.
-7. **Features** (optional; see below): **Detect**, then label canals, osteons etc. in the cartoon.
-8. **Lacunae** (optional, high-resolution images only): **Area** traces the counting polygon, **Count** places a
-   point per lacuna. Right-click a point to remove it.
-9. **Whole section** scores, notes, **Export**, **Next**.
+The export holds what the growth model needs, including *why* something is missing:
 
-Tracing: **Enter** leaves a gap so the next click starts a new segment of the same curve (use it across cracks;
-gaps are never bridged). **Backspace** removes the last point, **Esc** stops. In **Edit** mode you can drag points
-and the scale/centre handles; right-click deletes a point. Wheel or +/− zooms, arrows or Space-drag pan, 0 fits.
-**?** lists the shortcuts.
+- **Outer vs inner loss of marks** (model 38): the periosteum vs broken edge (where the outer surface is gone),
+  the remodelling front and secondary-osteon extent (where inner marks are wiped out), and EFS lines that can't
+  be separated (`counts.efs_lines_min`).
+- **EFS three-state**: present / absent / unclear, with a reason, so "surface broken" never becomes "absent".
+- **Interval counts**: traced marks, transect crossings and the student's count become `[count_lo, count_hi]` at
+  import (open-ended if "at least").
+- **Radii and zone widths**: traced curves (with a clicked or fitted centre) and transects, both in image pixels
+  plus the scale.
+- **Tissue per zone**: the raw answers (`zone.obs`) and the descriptors derived from them by `guide.js`
+  (`matrix`, `vasc_density`, `vasc_orient`, `remodelling`, `prim_osteons`, `tissue`, `basis_light`,
+  `rules_version`). The derived terms are not shown on screen, so they cannot steer the answers. The rules can be
+  revised and re-applied without measuring again. A matrix call from plain
+  light (lacuna shape) is marked `basis_light = plain_light_lacunae`.
 
-The export check line under the notes says what is *Needed* (blocks export) and what to *Check* (exported as
-warnings).
+## Odd cases
 
-## Features
+| Case | What to do |
+|---|---|
+| Wedge or fragment | Image: *part of a section*. Outline whatever edges are present; centre **Fit** (needs ~90° of periosteum) or **No centre**; transects work well |
+| Outer cortex eroded or broken | Trace it as **Broken edge**; answer EFS **Can't tell** (surface broken) |
+| Inner marks remodelled away | Trace the **Remodelling front**; answer how far secondary osteons reach |
+| Marks too faint to trace | Switch to transects; or give only the count, with "at least" |
+| Close-up of tissue | Image: *close-up*. Outline and marks are skipped; answer the tissue questions for the field |
+| Plain and polarized photos of one section | Pick the second one as the other-light image; **Align**; it is not measured separately |
+| A mark splits in two | Trace the split part as a new mark, then edit it (`T`) and set *Splits off* |
+| No usable bone | Image: *nothing usable*, with a reason, then export |
+
+Centre fitting: the centroid of the periosteum if it closes (≥ 330°), otherwise a least-squares circle through the
+periosteum (or through all outer edges if the periosteum spans < 90°). Fits on elliptical or drifting sections
+are approximate (about 4% of the radius on the demo); the export records `centre_method` and `centre_fit`.
+
+## More (optional) tools
+
+Under **More**: the feature finder (canals and osteons), osteocyte lacuna counts, and ignore boxes.
+
+### Feature finder
 
 **Detect** marks every connected region that is darker (or brighter, or either) than the tissue around it.
 Contrast is measured against the tissue within **Window px** and scaled by its local spread, so the section edge
@@ -83,6 +102,7 @@ Tested on the 18 Garros 2025 *Troodon* figures (plain light, about 8 µm per pix
 canal network is picked up well; osteons are found through their canals, and their outlines are not traced.
 Crossed-polar images are untested.
 
+
 ## Folder format
 
     my_batch/
@@ -94,48 +114,56 @@ Task fields: `figure_id`, `file` (required); `sha256`, `source_id`, `citation`, 
 `view`, `light`, `quality_tier`, `measurable`, `scale_value`, `caption`, `assignment` {measurer, repeat}.
 Without a manifest, each image becomes a task and the identity fields can be typed in.
 
-## Export file (schema 0.3)
+Optional task fields for paired images: `companion_file`, `companion_light`.
 
-`<figure_id>__<measurer>__<timestamp>.json`:
+## Export file (schema 0.4)
 
-- `task` (manifest row), `identity_edits`, `image` {file, sha256, sha256_matches_manifest, px size};
-- `measurer`, `repeat`, `started_at`, `exported_at`, `time_spent_s`;
-- `calibration` {p1, p2 in pixels, length, unit}, `centre` [x, y] or null;
-- `section` {position, plane, min_circumference}, `flags`, `scores`, `notes`, `validation_warnings`;
-- `curves[]`: {id, kind, segments [[[x, y], ...], ...]} with kind one of periosteum, medullary, mark, label,
-  efs_inner, count_area, ignore.
-  - marks: mark_index, index_uncertain, mark_type, confidence, in_efs, branch_of (id of the main mark or null);
+`<figure_id>__<measurer>__<timestamp>.json`. All coordinates are image pixels, origin top left.
+
+- `task` (manifest row), `identity_edits`, `image` {file, sha256, sha256_matches_manifest, px size}, `measurer`,
+  `repeat`, `started_at`, `exported_at`, `time_spent_s`, `rules_version`;
+- `setup` {view: whole | part | detail | unusable, light: plain | xpl | lambda | fluorescence | ct | other,
+  companion {file, light, sha256, transform [a, b, tx, ty] (main = [a −b; b a]·companion + t), transform_method},
+  marks_mode};
+- `calibration` {p1, p2, length, unit}, `centre` [x, y] or null, `centre_method` clicked | fitted | null,
+  `centre_fit` {method, arc_deg, rms_px};
+- `section` {position, plane, min_circumference}, `flags`, `scores` (each question's answer plus
+  `<key>_reason` for "unclear"), `counts` {visible_marks, visible_at_least, efs_lines_min}, `steps`
+  {id: {status: skipped, reason}}, `notes`, `validation_warnings`;
+- `curves[]`: {id, kind, segments [[[x, y], ...], ...]}. Kinds: periosteum, broken_edge, medullary,
+  remodel_front, mark, label, efs_inner, transect, count_area, ignore.
+  - marks: mark_index, index_auto, index_uncertain, mark_type (LAG / annulus / uncertain), confidence 1–3,
+    in_efs, branch_of;
   - labels: label_index, dye, label_date, age_days;
-  - any boundary curve may carry `zone` {matrix, vasc_density, vasc_orient, remodelling, varies}: the tissue
-    just *inside* that curve;
-- `lacunae[]`: [x, y] points;
-- `derived` (convenience; recompute from the raw points for analysis):
-  - `unit`, `px_per_unit`;
-  - per curve: length (perimeter for count areas), radius mean/min/max from the centre, `coverage_deg` (5° bins)
-    and `arc_deg` [start, end], clockwise from the +x axis in image coordinates;
-  - `zones[]` in radial order with inner/outer curve ids and descriptors. `reference_for_zone_order` says how
-    the order was found: distance from the centre, else from the periosteum (wedges), else kind and index;
-  - `lacuna_counts[]` per area: n, area (unit²), density; `lacunae_outside_areas`;
-  - `features`: counts, areas and area fractions per label, overall and per zone, with the searched area;
-- `features` {settings, objects[], mask}: see Features. `based_on` names the export a reloaded one came from.
+  - transects: one segment [outer end, inner end], `ends` {outer, inner}, `crossings[]` {p, t (0 at the outer
+    end), kind, mark_index, index_auto}. Marks are numbered 1 = innermost crossing on that transect;
+  - boundary curves may carry `zone` (the tissue just inside): `obs` plus the derived descriptors above, `varies`,
+    and `legacy` for zones described in 0.3 and not yet re-answered;
+- `field`: the same block for a close-up (no zones);
+- `lacunae[]`, `features` (see the feature finder), `based_on`;
+- `derived` (convenience; recompute from the raw points): per-curve lengths, radii and coverage, transect
+  distances and radii, zones in radial order, outer-edge coverage, step states, lacuna counts, features.
 
-All coordinates are image pixels, origin top left. Work in progress autosaves in the browser; the exported file
-is the record (autosave space is limited; drafts of exported images are dropped first when it fills). Drafts saved
-by 0.1 and 0.2 are migrated on open: paired double marks become branches, and "section
-oblique" becomes plane = oblique.
+Zone order: the medullary margin is always innermost and the outer edge (periosteum, else broken edge) always
+outermost; the rest go by distance from the centre, else depth below the outer edge, else kind and index.
+
+Exports and drafts from 0.1–0.3 open and migrate: their mark numbers are kept as typed (`index_auto` false), and
+their zone descriptors are kept (`legacy`) until someone answers the new questions.
 
 ## Import
 
     python3 measure/tools/import_exports.py <exports folder or files> [--out data_clean] [--min-coverage 180]
 
-Writes `digitized_sections.csv`, `digitized_curves.csv`, `digitized_zones.csv`, `digitized_lacunae.csv`,
-`digitized_features.csv` (one row per labelled feature: area, equivalent diameter, elongation, orientation, zone,
-recomputed from its pixel runs) and `digitized_feature_zones.csv` (count, area and density per zone and label; the
-zone's searched area comes from the tool's `derived` block, because it needs the image).
-Everything is recomputed from the raw points (the `derived` block is only cross-checked), lengths are in mm,
-and 0.1 exports are migrated. If one measurer exported an image more than once, the latest export is kept.
-Problems (no scale, duplicate mark indices, lacunae outside a counting area, disagreement with the tool's own
-lengths) go in `import_issues` and are printed.
+Writes `digitized_sections.csv`, `digitized_curves.csv`, `digitized_zones.csv`, `digitized_transects.csv`,
+`digitized_lacunae.csv`, `digitized_features.csv` and `digitized_feature_zones.csv`. Everything is recomputed from
+the raw points (the `derived` block is only cross-checked), lengths are in mm, and older exports are migrated. If one
+measurer exported an image more than once, the latest export is kept. Problems go in `import_issues`.
+
+New in 0.4: sections carry `view`, `light`, the other-light image, `centre_method`, `count_lo` / `count_hi`,
+`efs_lines_min`, `periosteum_cov_deg`, `broken_edge_cov_deg`, `outer_broken_share` (whole sections with a centre:
+share of the circle without periosteum), `has_remodel_front`, `score_*_reason` and `steps_skipped`. Zones carry
+`obs_*` and the derived descriptors. `digitized_transects.csv` has one row per transect point (outer end,
+crossings, inner end) with distance from the outer end, radius from the centre and width to the next point inward.
 
 Each curve has two circumference estimates, and both need a centre:
 
@@ -154,8 +182,11 @@ Wedges with no centre get `depth_mean_mm`, the mean distance below the periosteu
 `python3 measure/tools/test_import.py` builds exports from the synthetic fixtures' true ellipses and checks the
 import against them.
 
+`python3 measure/tools/test_import.py` checks the import against the synthetic fixtures (including a 0.4 eroded
+section with a transect, and a close-up).
+
 ## Not yet
 
-Edge snapping, fixed-transect quick mode, a JSON Schema file, a drift-aware circumference for partial arcs,
-a way to describe how a zone varies around the section other than the notes, osteon outlines (not just canals),
-and feature detection tested on crossed-polar images.
+A picture glossary with example crops for each answer; transect crossings that take their numbers from traced marks;
+an ellipse fit for the centre; edge snapping; a JSON Schema file; a drift-aware circumference for partial arcs;
+osteon outlines (not just canals); and the feature finder tested on crossed-polar images.

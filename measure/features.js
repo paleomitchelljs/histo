@@ -39,7 +39,7 @@ function fs(d = S.doc) {
   if (!d.features) d.features = { settings: {}, objects: [] };
   const st = d.features.settings;
   for (const k in DEFAULTS) if (st[k] == null) st[k] = DEFAULTS[k];
-  if (!st.light) st.light = /pol|xpl|cross/i.test(String(d.task.light || "")) ? "xpl" : "ppl";
+  if (!st.light) st.light = /pol|xpl|cross|lambda/i.test(String((d.setup && d.setup.light) || d.task.light || "")) ? "xpl" : "ppl";
   return d.features;
 }
 const current = () => S.doc && S.img && F.px && F.url === S.img.url;
