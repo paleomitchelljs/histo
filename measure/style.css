@@ -72,8 +72,8 @@ svg .vert, svg .handle { cursor: move; }
 .pad button { width: 30px; height: 30px; padding: 0; border-radius: 7px; font-size: 14px; line-height: 1; }
 .pad button:hover { background: rgba(37,87,214,.9); border-color: transparent; }
 .pad button[hidden] { display: none; }
-.adjust { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 10px; padding: 4px 10px; border-radius: 7px; font-size: 12px; opacity: .55; }
-.adjust:hover { opacity: 1; }
+.adjust { position: absolute; right: 48px; top: 10px; display: flex; flex-direction: column; gap: 6px; padding: 6px 10px; border-radius: 7px; font-size: 12px; }
+.adjust[hidden] { display: none; }
 .adjust label { display: flex; gap: 4px; align-items: center; }
 .adjust input[type=range] { width: 80px; }
 .welcome { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ddd; text-align: center; padding: 20px; }
@@ -108,8 +108,8 @@ svg .vert, svg .handle { cursor: move; }
 .q.done > .qt::before { content: "✓ "; color: var(--ok); }
 .opts { display: flex; flex-wrap: wrap; gap: 5px; }
 .opts button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; text-align: left; }
-.opts.pics { display: grid; grid-template-columns: 1fr 1fr; }
-.opts.pics button { padding: 5px 7px; font-size: 12px; line-height: 1.25; }
+.opts.pics { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); }
+.opts.pics button { flex-direction: column; justify-content: center; gap: 3px; padding: 5px 4px; font-size: 12px; line-height: 1.2; text-align: center; }
 .opts button.on { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .opts button.unclear { color: var(--muted); border-style: dashed; }
 .opts svg { flex: none; }

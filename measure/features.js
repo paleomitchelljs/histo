@@ -48,7 +48,7 @@ const current = () => S.doc && S.img && F.px && F.url === S.img.url;
 async function ensurePixels() {
   if (current()) return true;
   const url = S.img.url, im = new Image(); im.src = url;
-  try { await im.decode(); } catch (e) { HM.status("Could not read the image pixels."); return false; }
+  try { await im.decode(); } catch (e) { HM.status("Pixels unreadable"); return false; }
   if (!S.img || S.img.url !== url) return false;
   const w = im.naturalWidth, hh = im.naturalHeight, N = w * hh;
   const cv = document.createElement("canvas"); cv.width = w; cv.height = hh;
@@ -231,7 +231,7 @@ async function detect() {
       const pieces = split(runs, T); if (pieces.length > 1) nets++;
       for (const r of pieces) { if (runArea(r) < Math.min(st.min_area_px, 4)) continue; paintRuns(lab, r, objs.length); objs.push({ ref: null, label: null, runs: r }); } }
     F.fromMask = false; finish(lab, objs);
-    HM.status(`${objs.filter((o) => !o.ref).length} candidates` + (nets ? ` · ${nets} connected networks split into ${T}-px tiles` : ""));
+    HM.status(`${objs.filter((o) => !o.ref).length} candidates` + (nets ? ` · ${nets} networks tiled` : ""));
   } finally { F.busy = false; renderPanel(); }
 }
 function schedule() { clearTimeout(F.timer); if (F.lab) F.timer = setTimeout(detect, 350); }
@@ -255,7 +255,7 @@ function addPoint(p, label) {
     for (let x = Math.max(0, cx - dx); x <= Math.min(w - 1, cx + dx); x++) {
       if (F.lab[y * w + x] < 0) { if (run) run[2] = x; else run = [y, x, x]; } else if (run) { runs.push(...run); run = null; } }
     if (run) runs.push(...run); }
-  if (!runs.length) { HM.status("No free pixels there."); return; }
+  if (!runs.length) { HM.status("No free pixels"); return; }
   const i = F.objs.length; paintRuns(F.lab, runs, i);
   const o = { ref: null, label: null, runs, point: { point: [cx, cy], radius_px: rad } }; o.st = stats(runs); F.objs.push(o);
   standardize(F.objs); setLabel(i, label, "point");
@@ -266,13 +266,13 @@ function findSimilar() {
   const ex = new Map();
   F.objs.forEach((o) => { if (o.label) { if (!ex.has(o.label)) ex.set(o.label, []); ex.get(o.label).push(o.v); } });
   for (const [k, list] of ex) if (list.length > 300) ex.set(k, list.slice(-300));
-  if (![...ex.keys()].some((k) => k !== NONE)) { HM.status("Label a few examples first (click a feature, or hover and press 1–6)."); return; }
+  if (![...ex.keys()].some((k) => k !== NONE)) { HM.status("No labelled examples"); return; }
   const thr = fs().settings.match, D = F.objs[0].v.length; F.suggest = new Map();
   F.objs.forEach((o, i) => { if (o.label) return; let best = Infinity, cls = null;
     for (const [k, list] of ex) for (const v of list) { let s = 0; for (let j = 0; j < D; j++) s += (o.v[j] - v[j]) ** 2;
       const d = Math.sqrt(s / D); if (d < best) { best = d; cls = k; } }
     if (cls && cls !== NONE && best < thr) F.suggest.set(i, cls); });
-  paintAll(); renderPanel(); HM.status(`${F.suggest.size} suggested · A accepts all, or click one to accept or reject it`);
+  paintAll(); renderPanel(); HM.status(`${F.suggest.size} suggested`);
 }
 function acceptSuggestions() { const n = F.suggest.size; for (const [i, c] of [...F.suggest]) setLabel(i, c, "similar");
   F.suggest.clear(); paintAll(); renderPanel(); HM.status(`${n} accepted`); }
@@ -304,7 +304,7 @@ function drawCartoon() {
   const x = cv.getContext("2d"); x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = "#2a2a2e"; x.fillRect(0, 0, W, H);
   if (!S.doc) return;
   if (!(F.raster && current())) { x.fillStyle = "#bbb"; x.font = `${13 * dpr}px system-ui, sans-serif`;
-    x.fillText(F.busy ? "Finding features…" : "Press Detect to find features", 14 * dpr, 24 * dpr); return; }
+    x.fillText(F.busy ? "Finding features…" : "Not detected", 14 * dpr, 24 * dpr); return; }
   x.setTransform(g.sc * dpr, 0, 0, g.sc * dpr, g.ox * dpr, g.oy * dpr);
   x.imageSmoothingEnabled = g.sc < 1; x.drawImage(F.raster, 0, 0);
   x.lineWidth = 1.6 / g.sc; x.lineJoin = "round";
@@ -337,7 +337,7 @@ function renderFeature(i, p) {
     h("span", { class: "sw", style: `background:${HEX[k]}` }), lab, n ? h("kbd", {}, n) : null);
   if (i < 0) {
     m.append(h("div", { class: "tm-title" }, "No candidate here"),
-      h("div", { class: "muted" }, "Add a point feature (for something detection missed):"));
+      h("div", { class: "muted" }, "Add point:"));
     const s = h("div", { class: "seg col" });
     CLASSES.forEach(([k, lab]) => s.append(btn(k, lab, null, false, () => { addPoint(p, k); renderPanel(); HM.closePop(); })));
     m.append(s, h("div", { class: "tm-foot" }, h("button", { class: "primary", onclick: HM.closePop }, "Done"))); return;
@@ -363,33 +363,33 @@ function renderPanel() {
   const num = (k, title, min, max) => h("input", { type: "number", class: "num", min, max, step: 1, value: st[k], title,
     onchange: (e) => { const v = parseFloat(e.target.value); if (isFinite(v)) { st[k] = Math.min(max, Math.max(min, v)); re(); } } });
   const sens = h("input", { type: "range", min: 0, max: 100, value: Math.round((THR[0] - st.threshold) / (THR[0] - THR[1]) * 100),
-    title: "Higher finds fainter features", oninput: (e) => { st.threshold = +(THR[0] - (THR[0] - THR[1]) * e.target.value / 100).toFixed(2); HM.touch(); schedule(); } });
+    oninput: (e) => { st.threshold = +(THR[0] - (THR[0] - THR[1]) * e.target.value / 100).toFixed(2); HM.touch(); schedule(); } });
   box.append(h("div", { class: "grid2" },
-    h("label", {}, "Light"), HM.seg(["ppl", "xpl"], st.light, (v) => { st.light = v || st.light; HM.touch(); renderPanel(); }, (v) => (v === "ppl" ? "plain" : "crossed polars")),
-    h("label", { title: "Infilled canals are usually darker than the matrix; empty ones can be brighter" }, "Look for"),
+    h("label", {}, "Light"), HM.seg(["ppl", "xpl"], st.light, (v) => { st.light = v || st.light; HM.touch(); renderPanel(); }, (v) => (v === "ppl" ? "plain" : "XPL")),
+    h("label", {}, "Look for"),
     HM.seg(["dark", "bright", "either"], st.polarity, (v) => { st.polarity = v || st.polarity; re(); }, (v) => ({ dark: "darker", bright: "brighter", either: "either" })[v]),
-    h("label", { title: "Higher finds fainter features" }, "Sensitivity"), sens,
-    h("label", { title: "Radius of the surrounding tissue each pixel is compared with; about 3 canal widths" }, "Window px"),
-    h("span", {}, num("window_px", "Radius (px) of the surrounding tissue", 3, 80), h("span", { class: "muted" }, " min area "), num("min_area_px", "Smallest feature kept (px²)", 1, 5000))));
-  const where = { areas: "inside the traced Areas", cortex: "cortex inside the periosteum", tissue: "all tissue (trace the periosteum or an Area to narrow it)" }[F.regionKind];
+    h("label", {}, "Sensitivity"), sens,
+    h("label", {}, "Window px"),
+    h("span", {}, num("window_px", "", 3, 80), h("span", { class: "muted" }, " min area "), num("min_area_px", "", 1, 5000))));
+  const where = { areas: "areas", cortex: "cortex", tissue: "all tissue" }[F.regionKind];
   const objs = current() ? F.objs : [], reg = F.regionPx || 1;
   const cand = objs.filter((o) => !o.label), candA = cand.reduce((a, o) => a + o.st.n, 0);
-  box.append(h("div", { class: "box" }, F.busy ? "Finding features…" : !F.lab || !current() ? "Detect to find candidates." :
-    `${cand.length} unlabelled (${(100 * candA / reg).toFixed(1)}% of region) · ${where}`));
+  box.append(h("div", { class: "box" }, F.busy ? "Finding features…" : !F.lab || !current() ? "—" :
+    `${cand.length} unlabelled · ${(100 * candA / reg).toFixed(1)}% · ${where}`));
   const ul = h("ul", { class: "legend" });
   CLASSES.forEach(([k, lab], n) => { const mine = f.objects.filter((o) => o.label === k), a = mine.reduce((s, o) => s + o.area_px, 0);
     const sug = [...F.suggest.values()].filter((c) => c === k).length;
     ul.append(h("li", {}, h("kbd", {}, String(n + 1)), h("span", { class: "sw", style: `background:${HEX[k]}` }), h("span", { class: "kind" }, lab),
-      h("span", { class: "detail" }, (mine.length ? `${mine.length}` + (F.regionPx ? ` · ${(100 * a / reg).toFixed(1)}%` : "") : "") + (sug ? ` (+${sug} suggested)` : "")))); });
+      h("span", { class: "detail" }, (mine.length ? `${mine.length}` + (F.regionPx ? ` · ${(100 * a / reg).toFixed(1)}%` : "") : "") + (sug ? ` +${sug}?` : "")))); });
   const nn = f.objects.filter((o) => o.label === NONE).length;
   ul.append(h("li", {}, h("kbd", {}, "X"), h("span", { class: "sw", style: `background:${HEX[NONE]}` }), h("span", { class: "kind" }, NAME[NONE]),
     h("span", { class: "detail" }, nn ? String(nn) : "")));
   box.append(ul);
   box.append(h("div", { class: "tools" },
-    h("button", { onclick: findSimilar, title: "Suggest labels for unlabelled candidates from the labelled ones (F)" }, "Find similar"),
-    h("input", { type: "range", min: 30, max: 300, value: Math.round(st.match * 100), title: "Match: further right accepts looser matches",
+    h("button", { onclick: findSimilar, title: "F" }, "Find similar"),
+    h("input", { type: "range", min: 30, max: 300, value: Math.round(st.match * 100), title: "Match",
       oninput: (e) => { st.match = e.target.value / 100; }, onchange: () => { if (F.suggest.size) findSimilar(); } }),
-    h("button", { class: F.suggest.size ? "primary" : "", disabled: !F.suggest.size, onclick: acceptSuggestions, title: "Accept all suggestions (A)" },
+    h("button", { class: F.suggest.size ? "primary" : "", disabled: !F.suggest.size, onclick: acceptSuggestions, title: "A" },
       `Accept ${F.suggest.size || ""}`.trim())));
 }
 
@@ -419,7 +419,7 @@ async function loadMask(file) {
   const url = URL.createObjectURL(file), im = new Image(); im.src = url;
   try { await im.decode(); } finally { URL.revokeObjectURL(url); }
   const { w, h: hh, N } = F.px;
-  if (im.naturalWidth !== w || im.naturalHeight !== hh) { HM.status("The mask is not the same size as the image; ignored.", true); return detect(); }
+  if (im.naturalWidth !== w || im.naturalHeight !== hh) { HM.status("Mask size differs; ignored", true); return detect(); }
   const cv = document.createElement("canvas"); cv.width = w; cv.height = hh;
   const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(im, 0, 0); const a = g.getImageData(0, 0, w, hh).data;
   const byV = new Map();
@@ -431,7 +431,7 @@ async function loadMask(file) {
     paintRuns(lab, runs, objs.length); objs.push({ ref, label: ref ? ref.label : null, runs }); }
   for (const o of f.objects) if (!byV.has(o.mask_value)) { paintRuns(lab, o.runs, objs.length); objs.push({ ref: o, label: o.label, runs: o.runs }); }
   F.fromMask = true; finish(lab, objs);
-  HM.status(`Mask loaded: ${f.objects.length} labelled, ${objs.length - f.objects.length} unlabelled. Detect would re-segment the unlabelled ones.`);
+  HM.status(`Mask: ${f.objects.length} labelled, ${objs.length - f.objects.length} unlabelled`);
 }
 
 // ---------- derived numbers for the export ----------
@@ -475,7 +475,7 @@ HM.hooks.render.push(() => {
       stroke: "var(--sel)", "stroke-width": 2 * k, "pointer-events": "none" }, HM.layerVerts); }
   drawCartoon();
 });
-HM.hooks.label.push((p, ev) => { if (!F.lab) { HM.status("Press Detect first."); return; } const i = objAt(p); openFeature(i, p, ev); });
+HM.hooks.label.push((p, ev) => { if (!F.lab) { HM.status("Not detected yet"); return; } const i = objAt(p); openFeature(i, p, ev); });
 HM.hooks.beforeExport.push(beforeExport);
 HM.hooks.exportFiles.push(maskFile);
 HM.hooks.derive.push((d, out) => { const x = deriveFeatures(d); if (x) out.features = x; });

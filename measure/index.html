@@ -16,7 +16,7 @@
     <button id="btnNext" class="icon">›</button>
   </div>
   <div class="hgroup">
-    <input id="measurer" placeholder="Your initials" size="10">
+    <input id="measurer" placeholder="Initials" size="10">
     <button id="btnUndo" class="icon" title="Undo (Ctrl/Cmd+Z)">↶</button>
     <button id="btnHelp" class="icon" title="Shortcuts (?)">?</button>
     <button id="btnExport" class="primary">Export</button>
@@ -33,7 +33,7 @@
     <input type="file" id="loadInput" accept=".json,.png" multiple hidden>
     <input type="file" id="dirInput" webkitdirectory multiple hidden>
     <h2>Images <span id="taskCount" class="muted"></span></h2>
-    <ul id="taskList"><li class="muted">Open a folder.</li></ul>
+    <ul id="taskList"><li class="muted">—</li></ul>
   </aside>
 
   <section id="stage">
@@ -48,9 +48,10 @@
       <button id="padIn" title="Zoom in (+)">+</button>
       <button id="padOut" title="Zoom out (−)">−</button>
       <button id="padFit" title="Fit (0)">⤢</button>
-      <button id="padSwap" title="Switch to the other-light image (P)" hidden>◑</button>
+      <button id="padSwap" title="Other light (P)" hidden>◑</button>
+      <button id="padAdjust" title="Contrast / brightness">☀</button>
     </div>
-    <div class="adjust" aria-label="Image display">
+    <div class="adjust" id="adjust" aria-label="Image display" hidden>
       <label>◐ <input type="range" id="contrast" min="50" max="250" value="100"></label>
       <label>☀ <input type="range" id="brightness" min="50" max="200" value="100"></label>
     </div>
@@ -112,22 +113,22 @@
 <div id="help" class="pop help" hidden>
   <div class="tm-title">Shortcuts</div>
   <table>
-    <tr><td>[ ]</td><td>previous / next step</td></tr>
-    <tr><td>N</td><td>new growth mark</td></tr>
-    <tr><td>click</td><td>add a point</td></tr>
-    <tr><td>Enter</td><td>gap: the next click starts a new piece of the same line</td></tr>
-    <tr><td>Backspace</td><td>remove the last point</td></tr>
+    <tr><td>[ ]</td><td>step</td></tr>
+    <tr><td>N</td><td>new mark</td></tr>
+    <tr><td>click</td><td>point</td></tr>
+    <tr><td>Enter</td><td>new piece</td></tr>
+    <tr><td>Backspace</td><td>remove point</td></tr>
     <tr><td>Esc</td><td>stop</td></tr>
-    <tr><td>T</td><td>edit the selected line</td></tr>
-    <tr><td>P</td><td>switch to the other-light image</td></tr>
-    <tr><td>drag a point</td><td>move it (when not tracing)</td></tr>
-    <tr><td>right-click a point</td><td>delete it</td></tr>
+    <tr><td>T</td><td>edit line</td></tr>
+    <tr><td>P</td><td>other light</td></tr>
+    <tr><td>drag point</td><td>move</td></tr>
+    <tr><td>right-click point</td><td>delete</td></tr>
     <tr><td>wheel, + −</td><td>zoom</td></tr>
-    <tr><td>drag, arrows</td><td>pan (Shift = big step; Space-drag while tracing)</td></tr>
-    <tr><td>0</td><td>fit the image</td></tr>
-    <tr><td>V / L</td><td>feature cartoon / label tool</td></tr>
-    <tr><td>hover + 1–6</td><td>label a feature (X not a feature, U clear)</td></tr>
-    <tr><td>F / A</td><td>find similar / accept suggestions</td></tr>
+    <tr><td>drag, arrows</td><td>pan (Space-drag while tracing)</td></tr>
+    <tr><td>0</td><td>fit</td></tr>
+    <tr><td>V / L</td><td>cartoon / label</td></tr>
+    <tr><td>hover + 1–6</td><td>label (X none, U clear)</td></tr>
+    <tr><td>F / A</td><td>find similar / accept</td></tr>
   </table>
 </div>
 <script src="guide.js"></script>

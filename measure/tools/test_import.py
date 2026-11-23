@@ -193,6 +193,17 @@ def main():
     cz = [z for z in Z if z["figure_id"] == "closeup"]
     check(len(cz) == 1 and cz[0]["outer_kind"] == "field" and cz[0]["tissue"] == "secondary_haversian", "close-up field zone missing")
 
+    # a periosteum clicked all the way round stops one click short of its start: closed, unless a broken edge fills the gap
+    ring = [[100 * math.cos(2 * math.pi * i / 24), 100 * math.sin(2 * math.pi * i / 24)] for i in range(24)]
+    arc = ring[:14]
+    peri = lambda s: {"id": "p", "kind": "periosteum", "segments": [s]}
+    gap_brk = {"id": "b", "kind": "broken_edge", "segments": [[ring[-1], [100, -10], ring[0]]]}
+    closed = imp.close_periosteum({"curves": [peri(ring)]})["curves"][0]["segments"][0]
+    check(closed[-1] == ring[0], "full periosteum ring not closed")
+    check(imp.coverage([{"segments": [closed]}], [0, 0]) == 360, "closed ring coverage below 360")
+    check(len(imp.close_periosteum({"curves": [peri(ring), gap_brk]})["curves"][0]["segments"][0]) == 24, "ring closed across a broken edge")
+    check(len(imp.close_periosteum({"curves": [peri(arc)]})["curves"][0]["segments"][0]) == 14, "partial arc closed")
+
     print("\n".join(fails) if fails else "all checks passed")
     return 1 if fails else 0
 

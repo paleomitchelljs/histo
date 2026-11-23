@@ -6,30 +6,53 @@ folder in place and uploads nothing. It is static HTML, CSS and JS, with no buil
 
 ## Quick start
 
-The tool itself shows no instructions or interpretation (a research digitizer, not a teaching tool); this
-section is the protocol.
+The tool shows only short labels: no instructions, definitions or interpretation (a research digitizer, not a
+teaching tool). This section and the glossary below are the protocol.
 
 1. Serve the folder (`python3 -m http.server 8000 -d measure`), open http://localhost:8000 in Chrome or Edge,
    type your initials in the top bar, and **Open folder** (or **Try the demo**).
 2. Work through the steps in the right-hand panel. **Next ›** or `]` moves on; the rail at the top shows what is
    done (✓), skipped (–) or not needed (faded).
-   - **Image**: what it shows (whole section / part / close-up / nothing usable) and how it was lit. If the folder
-     has a crossed-polars photo of the same section, pick it here and **Align** it with two landmarks. **P** then
-     switches between the two.
-   - **Scale**: click both ends of the scale bar and check the length.
-   - **Outline**: trace the *periosteum* where the real outer surface survives and the *broken edge* where it
-     doesn't; trace the *medullary margin*, and the *remodelling front* if secondary bone has wiped out the inner
-     marks. Then set the centre: **Click it**, **Fit from outline**, or **No centre** (wedges).
-   - **Growth marks**: trace each mark (**Growth mark** or `N`, click along it, `Enter` to jump a crack, `Esc` to finish). Marks are
-     numbered from the inside out automatically. For faint or broken sections, switch to **Transect**. Then give your total count, ticking "at least" if some may be hidden.
-   - **Tissue**: answer the picture questions for each zone. **Copy to undescribed zones** saves repetition.
-   - **Whole bone**: EFS, how far secondary osteons reach, inner circumferential layer, medullary bone, quality.
+   - **Image**: **View** (whole / part / close-up / unusable) and **Light**. If the folder has a photo of the same
+     section in other light, choose it under **Other light** and **Align** it: click a landmark on the main image,
+     the same landmark on the other image, then a second pair. **P** (or ◑) switches between the two.
+   - **Scale**: **Scale bar**, click both ends, check the length (prefilled from the manifest when known).
+   - **Outline**: under **Outer**, trace **Periosteum** where the real outer surface survives and **Broken edge**
+     where it doesn't; under **Inner**, trace **Medullary** (the marrow-cavity margin) and **Remodel front** (inner
+     limit of readable primary bone) if secondary bone has wiped out the inner marks. A periosteum traced all the way
+     round closes itself. **Centre**: **Click**, **Fit** (refused when the arc is under 90° or clearly not
+     circular), or **None** (wedges).
+   - **Marks**: **Mark** (or `N`), click along it, `Enter` to jump a crack, `Esc` to finish. Marks are numbered from
+     the inside out automatically. **EFS base** is the inner limit of the external fundamental system. For faint or
+     broken sections switch to **Transect**, **New**: click the outer end, the inner end, then each mark where it
+     crosses the line; **Done**. **Total marks**: your total count, traced or not; tick **≥** if some may be hidden.
+   - **Tissue**: answer the picture questions for each zone (see the glossary). **= inner** copies the zone inside;
+     **Copy to rest** fills the undescribed zones.
+   - **Bone**: EFS, how far ringed (secondary) osteons reach, ICL, medullary bone, image quality.
    - **Export**: fix anything marked ✕, then **Export** and **Next image**.
-3. If you can't do a step, pick a reason under **Not done** at the bottom of the card. If you can't
-   answer a question, press **Can't tell** and say why. "Can't tell" is useful data, so never guess.
+3. If you can't do a step, pick a reason under **Skip** at the bottom of the card. If you can't answer a question,
+   press **Unclear** and pick a reason. "Unclear" is useful data, so never guess.
 
-Drag to pan, wheel to zoom, `0` fits, `[` `]` change step, `?` lists all shortcuts. When you are not tracing, click
-a line to select it, drag its points to move them, and right-click a point to delete it.
+Drag to pan, wheel to zoom, `0` fits, `[` `]` change step, `?` lists all shortcuts, ☀ shows contrast and brightness.
+When you are not tracing, click a line to select it, drag its points to move them, and right-click a point to delete it.
+
+### Glossary of screen terms
+
+| On screen | Means |
+|---|---|
+| Canals: None / Few / Many / Packed | How much of the bone is canals (holes and channels): almost none; a few, scattered; many, spread through it; packed, almost spongy |
+| Canal pattern: Dots / Circular / Radial / Grid / Net / Mixed | What most canals look like: round dots or short ovals; long lines running around the bone; lines running outward like spokes; lines around joined by spokes; an irregular net; a mix |
+| Canal halos | Do most canals have a halo of layered bone around them with no sharp outer edge (primary osteons)? |
+| Ringed osteons: None / Few / Many / Most | Round osteons with a sharp outer ring that cut across the tissue around them (secondary osteons); Most = the bone is mostly made of them |
+| Matrix (XPL): Grainy / One-way / Layered / Grainy + rings | Under crossed polars the bone between the canals is dark and speckled; bright with fibres running one way; fine bright and dark layers; grainy with bright rings around the canals |
+| Lacunae: Plump / Flat / Both | Asked in plain light only: the osteocyte lacunae (tiny dark specks) are plump, round and pointing every way; flat and lined up in rows; or both kinds |
+| Varies | The zone's tissue changes around the section |
+| EFS | Just under the outer surface, several growth lines packed tightly together with few or no canals between them |
+| Ringed osteons reach: Inner / Mid / Surface | How far out from the marrow cavity secondary osteons reach |
+| Inner layer (ICL) | The marrow cavity is lined by a smooth band of layered bone with a sharp line on its outer side |
+| Medullary bone | A separate lining of spongy, woven-looking bone inside the marrow cavity |
+| Kastschenko's line (under More) | A wavy cement line where the cortex meets the inner (endosteal) bone |
+| Crushed / Cracks | The section is crushed or deformed / has cracks or infill |
 
 ## What gets recorded, and why
 
@@ -53,18 +76,25 @@ The export holds what the growth model needs, including *why* something is missi
 
 | Case | What to do |
 |---|---|
-| Wedge or fragment | Image: *part of a section*. Outline whatever edges are present; centre **Fit** (needs ~90° of periosteum) or **No centre**; transects work well |
-| Outer cortex eroded or broken | Trace it as **Broken edge**; answer EFS **Can't tell** (surface broken) |
-| Inner marks remodelled away | Trace the **Remodelling front**; answer how far secondary osteons reach |
-| Marks too faint to trace | Switch to transects; or give only the count, with "at least" |
-| Close-up of tissue | Image: *close-up*. Outline and marks are skipped; answer the tissue questions for the field |
-| Plain and polarized photos of one section | Pick the second one as the other-light image; **Align**; it is not measured separately |
-| A mark splits in two | Trace the split part as a new mark, then edit it (`T`) and set *Splits off* |
-| No usable bone | Image: *nothing usable*, with a reason, then export |
+| Wedge or fragment | View: *part*. Outline whatever edges are present; centre **Fit** (needs ~90° of periosteum) or **None**; transects work well |
+| Outer cortex eroded or broken | Trace it as **Broken edge**; answer EFS **Unclear** (surface broken) |
+| Inner marks remodelled away | Trace the **Remodel front**; answer how far secondary osteons reach |
+| Marks too faint to trace | Switch to transects; or give only **Total marks**, with **≥** |
+| Close-up of tissue | View: *close-up*. Outline and marks are skipped; answer the tissue questions for the field |
+| Plain and polarized photos of one section | Pick the second one under **Other light**; **Align**; it is not measured separately |
+| A mark splits in two | Trace the split part as a new mark, then edit it (`T`) and set *Branch of* |
+| No usable bone | View: *unusable*, with a reason, then export |
 
 Centre fitting: the centroid of the periosteum if it closes (≥ 330°), otherwise a least-squares circle through the
-periosteum (or through all outer edges if the periosteum spans < 90°). Fits on elliptical or drifting sections
-are approximate (about 4% of the radius on the demo); the export records `centre_method` and `centre_fit`.
+periosteum (or through all outer edges if the periosteum spans < 90°). The fit is refused when the arc is under 90°,
+or when the outline is clearly not circular: RMS misfit above 5% of the radius on arcs under 240° (a flattened rib
+gave 10%; a 0.7-aspect ellipse over 200° gives 3%), or above 15% on longer arcs. Fits on elliptical or drifting
+sections are approximate (about 4% of the radius on the demo); the export records `centre_method` and `centre_fit`
+(`rms_rel` = misfit / radius).
+
+Closed outline: a periosteum clicked all the way round ends a click short of where it started. It is treated as
+closed (for coverage, length and the centroid) when the gap is at most 12% of its length and no broken edge was
+traced across the gap; the importer applies the same rule.
 
 ## More (optional) tools
 

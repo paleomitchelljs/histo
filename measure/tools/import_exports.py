@@ -232,8 +232,30 @@ def coverage(c_list, z):
     return len(bins) * BIN
 
 
+def close_periosteum(d):
+    """A periosteum traced all the way round ends a click short of where it started. Close it when the gap is at most
+    12% of its length and no broken edge was traced across the gap (same rule as the tool's closeLoop)."""
+    brk = [c for c in d["curves"] if c["kind"] == "broken_edge"]
+    out = []
+    for c in d["curves"]:
+        if c["kind"] == "periosteum":
+            segs = []
+            for s in c["segments"]:
+                if len(s) >= 4:
+                    a, b = s[0], s[-1]
+                    gap, L = dist(a, b), sum(dist(p, q) for p, q in zip(s, s[1:]))
+                    mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+                    if 0 < gap <= 0.12 * L and not any(dist_to_polyline(mid, x["segments"]) < gap for x in brk):
+                        s = s + [a]
+                segs.append(s)
+            c = dict(c, segments=segs)
+        out.append(c)
+    return dict(d, curves=out)
+
+
 # ---------- one export ----------
 def process(path, d, args):
+    d = close_periosteum(d)
     issues = []
     ex = os.path.splitext(os.path.basename(path))[0]
     task = dict(d.get("task") or {})

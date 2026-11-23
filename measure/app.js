@@ -16,34 +16,32 @@ const HG = window.HG;
 const KINDS = {
   periosteum:    { label: "Periosteum", short: "Peri", color: "var(--c-periosteum)", boundary: true, outer: true },
   broken_edge:   { label: "Broken edge", short: "Brk", color: "var(--c-broken)", boundary: true, outer: true },
-  medullary:     { label: "Medullary margin", short: "Med", color: "var(--c-medullary)", boundary: true },
-  remodel_front: { label: "Remodelling front", short: "Rem", color: "var(--c-remodel)", boundary: true },
-  mark:          { label: "Growth mark", short: "", color: "var(--c-mark)", boundary: true },
-  label:         { label: "Fluorochrome label", short: "L", color: "var(--c-label)", boundary: true },
-  efs_inner:     { label: "EFS inner boundary", short: "EFS", color: "var(--c-efs_inner)", boundary: true },
+  medullary:     { label: "Medullary", short: "Med", color: "var(--c-medullary)", boundary: true },
+  remodel_front: { label: "Remodel front", short: "Rem", color: "var(--c-remodel)", boundary: true },
+  mark:          { label: "Mark", short: "", color: "var(--c-mark)", boundary: true },
+  label:         { label: "Label", short: "L", color: "var(--c-label)", boundary: true },
+  efs_inner:     { label: "EFS base", short: "EFS", color: "var(--c-efs_inner)", boundary: true },
   transect:      { label: "Transect", short: "T", color: "var(--c-transect)", boundary: false },
   count_area:    { label: "Count area", short: "Area", color: "var(--c-count)", boundary: false, closed: true },
   ignore:        { label: "Ignore box", short: "Ign", color: "var(--c-ignore)", boundary: false, closed: true },
 };
 const OUTER = new Set(["periosteum", "broken_edge"]);
 const TAGGABLE = ["mark", "label", "efs_inner", "periosteum", "broken_edge", "medullary", "remodel_front"];
-const MARK_TYPES = [["LAG", "LAG (thin line)"], ["annulus", "Annulus (band)"], ["uncertain", "Not sure"]];
+const MARK_TYPES = [["LAG", "LAG"], ["annulus", "Annulus"], ["uncertain", "Unsure"]];
 const DYES = ["calcein", "alizarin", "tetracycline", "xylenol", "other"];
 const MARK_FIELDS = ["mark_index", "index_auto", "index_uncertain", "mark_type", "confidence", "in_efs", "branch_of"];
 const LABEL_FIELDS = ["label_index", "dye", "label_date", "age_days"];
-const VIEWS = [["whole", "A whole cross-section"], ["part", "Part of a section (wedge or fragment)"],
-               ["detail", "A close-up of the tissue"], ["unusable", "Nothing usable"]];
-const LIGHTS = [["plain", "Plain light"], ["xpl", "Crossed polars"], ["lambda", "Polars + lambda plate"],
-                ["fluorescence", "Fluorescence"], ["ct", "CT / synchrotron"], ["other", "Other"]];
+const VIEWS = [["whole", "Whole"], ["part", "Part"], ["detail", "Close-up"], ["unusable", "Unusable"]];
+const LIGHTS = [["plain", "Plain"], ["xpl", "XPL"], ["lambda", "XPL + λ"], ["fluorescence", "Fluor."], ["ct", "CT"], ["other", "Other"]];
 const POLARIZED = new Set(["xpl", "lambda"]);
 const SECTION_FIELDS = [
-  ["position", "Position on the shaft", ["midshaft", "proximal_diaphysis", "distal_diaphysis", "metaphysis", "unknown"]],
+  ["position", "Position", ["midshaft", "proximal_diaphysis", "distal_diaphysis", "metaphysis", "unknown"]],
   ["plane", "Plane", ["transverse", "oblique", "longitudinal"]],
-  ["min_circumference", "Minimum circumference", ["yes", "no", "unknown"]],
+  ["min_circumference", "Min. circ.", ["yes", "no", "unknown"]],
 ];
-const FLAGS = [["deformation_visible", "Crushed or deformed"], ["cracks_infill", "Cracks or infill"]];
+const FLAGS = [["deformation_visible", "Crushed"], ["cracks_infill", "Cracks"]];
 const IDENTITY = ["source_id", "citation", "taxon", "specimen", "element", "view", "light", "quality_tier", "scale_value"];
-const XING_KINDS = [["mark", "Growth mark"], ["efs_inner", "EFS inner boundary"], ["label", "Fluorochrome label"]];
+const XING_KINDS = [["mark", "Mark"], ["efs_inner", "EFS base"], ["label", "Label"]];
 const ENDS = { outer: [["periosteum", "Periosteum"], ["broken_edge", "Broken edge"], ["image_edge", "Image edge"], ["unclear", "Unclear"]],
                inner: [["medullary", "Medullary margin"], ["remodel_front", "Remodelling front"], ["centre", "Centre"], ["image_edge", "Image edge"], ["unclear", "Unclear"]] };
 
@@ -53,12 +51,12 @@ const STEPS = [
     reasons: ["no scale bar in the figure", "scale bar cut off or unreadable", "other"] },
   { id: "outline", rail: "Outline", title: "Outline",
     reasons: ["edges not in the image", "too damaged to trace", "other"] },
-  { id: "marks", rail: "Marks", title: "Growth marks",
+  { id: "marks", rail: "Marks", title: "Marks",
     reasons: ["marks too faint to place", "image too coarse", "other"] },
   { id: "tissue", rail: "Tissue", title: "Tissue",
     reasons: ["image too coarse to see canals", "tissue obscured (stain, damage)", "other"] },
-  { id: "bone", rail: "Bone", title: "Whole bone" },
-  { id: "more", rail: "More", title: "More (optional)" },
+  { id: "bone", rail: "Bone", title: "Bone" },
+  { id: "more", rail: "More", title: "More" },
   { id: "export", rail: "Export", title: "Export" },
 ];
 
@@ -132,7 +130,7 @@ async function loadFiles(files) {
   }
   if (!tasks.length) {
     tasks = [...files.keys()].filter((n) => IMG_EXT.test(n)).sort().map((n) => ({ figure_id: n.replace(/\.[^.]+$/, ""), file: n, _no_manifest: true }));
-    if (!mf) status("No manifest: one task per image.");
+    if (!mf) status("No manifest");
   }
   for (const t of tasks) t._missing = !files.has(t.file);
   S.tasks = tasks; S.idx = -1; renderTasks();
@@ -169,7 +167,7 @@ async function openTask(i) {
   const t = S.tasks[i];
   if (t._missing) { status(`Not in folder: ${t.file}`); return; }
   S.idx = i; S.active = null; S.undo = []; S.scaleClick = null; S.hover = null; S.current = null; S.tStart = null; S.activeT = null;
-  S.align = null; S.openZone = null; closePop();
+  S.align = null; S.openZone = null; closePop(); status("");
   const file = S.files.get(t.file);
   if (S.img && S.img.url) URL.revokeObjectURL(S.img.url);
   const url = URL.createObjectURL(file);
@@ -181,7 +179,7 @@ async function openTask(i) {
   const hash = await sha256(file);
   S.doc.image.sha256 = hash;
   S.doc.image.sha256_matches_manifest = (t.sha256 && hash) ? t.sha256 === hash : null;
-  if (S.doc.image.sha256_matches_manifest === false) status("Image differs from the manifest hash.", true);
+  if (S.doc.image.sha256_matches_manifest === false) status("Hash differs from manifest", true);
   layerImg.innerHTML = "";
   el("image", { href: url, x: 0, y: 0, width: dims[0], height: dims[1], id: "theImage" }, layerImg);
   await loadCompanion();
@@ -192,7 +190,7 @@ async function openTask(i) {
   for (const f of hooks.open) f();
 }
 
-const guessView = (v) => ({ full_section: "whole", partial_section: "part", detail: "detail" })[v] || null;
+const guessView = (v) => ({ full_section: "whole", partial_section: "part", whole: "whole", part: "part", detail: "detail", unusable: "unusable" })[v] || null;
 function guessLight(s) { s = String(s || "");
   if (/lambda|gypsum/i.test(s)) return "lambda"; if (/pol|xpl|cross/i.test(s)) return "xpl"; if (/fluor|uv/i.test(s)) return "fluorescence";
   if (/\bct\b|synchro|tomog/i.test(s)) return "ct"; if (/normal|plain|ppl|bright/i.test(s)) return "plain"; return null; }
@@ -247,7 +245,7 @@ function saveDoc() {
     ok = store.set(keyDoc(S.doc.task.figure_id), S.doc);
   }
   if (!ok && !S.warnedStorage) {
-    S.warnedStorage = true; status("Browser storage is full: autosave is off for this image. Export to keep your work.", true); }
+    S.warnedStorage = true; status("Storage full: autosave off", true); }
   if (store.get(keyStatus(S.doc.task.figure_id)) !== "done" && (S.doc.curves.length || S.doc.calibration))
     store.set(keyStatus(S.doc.task.figure_id), "prog");
 }
@@ -262,9 +260,9 @@ async function loadCompanion() {
   S.comp = null; const old = $("theImage2"); if (old) old.remove();
   const c = S.doc.setup.companion; $("padSwap").hidden = true;
   if (!c) return;
-  const f = S.files.get(c.file); if (!f) { status(`Other-light image ${c.file} is not in this folder.`); return; }
+  const f = S.files.get(c.file); if (!f) { status(`${c.file} not in folder`); return; }
   const url = URL.createObjectURL(f), dims = await imgDims(url).catch(() => null);
-  if (!dims) { status(`${c.file}: cannot display this image.`); return; }
+  if (!dims) { status(`${c.file}: unreadable`); return; }
   S.comp = { url, w: dims[0], h: dims[1] };
   c.px_width = dims[0]; c.px_height = dims[1];
   if (!c.sha256) c.sha256 = await sha256(f);
@@ -286,20 +284,20 @@ function applyCompanion() {
   im2.style.filter = im.style.filter;
 }
 function swapLight() { if (!S.comp) return; S.blend = S.blend > 0.5 ? 0 : 1; applyCompanion(); renderPanels();
-  status(S.blend ? `Showing ${lightName(S.doc.setup.companion.light)} (P switches back)` : `Showing ${lightName(S.doc.setup.light)}`); }
+  status(S.blend ? lightName(S.doc.setup.companion.light) : lightName(S.doc.setup.light)); }
 const lightName = (v) => (LIGHTS.find(([k]) => k === v) || [0, "the other image"])[1].toLowerCase();
 function startAlign() { if (!S.comp) return; S.align = { pts: [] }; S.blend = 0; setTool("align"); applyCompanion(); }
 function alignClick(p) {
   const A = S.align; A.pts.push(p);
   if (A.pts.length === 4) {
     const [p1, q1, p2, q2] = A.pts, dq = [q2[0] - q1[0], q2[1] - q1[1]], dp = [p2[0] - p1[0], p2[1] - p1[1]], n = dq[0] ** 2 + dq[1] ** 2;
-    if (n < 4) { status("The two landmarks are too close together. Try again."); S.align = { pts: [] }; applyCompanion(); updateHint(); return; }
+    if (n < 4) { status("Landmarks too close"); S.align = { pts: [] }; applyCompanion(); updateHint(); return; }
     const a = (dp[0] * dq[0] + dp[1] * dq[1]) / n, b = (dp[1] * dq[0] - dp[0] * dq[1]) / n;
     const c = S.doc.setup.companion; pushUndo();
     c.transform = [+a.toFixed(6), +b.toFixed(6), +(p1[0] - (a * q1[0] - b * q1[1])).toFixed(2), +(p1[1] - (b * q1[0] + a * q1[1])).toFixed(2)];
     c.transform_method = "two_landmarks"; c.landmarks = { main: [rnd(p1), rnd(p2)], companion: [rnd(q1), rnd(q2)] };
     S.align = null; S.blend = 0.5; setTool("pan"); applyCompanion(); renderPanels();
-    status("Aligned. Check the overlap with the slider; P switches between the two.");
+    status("Aligned");
     return;
   }
   applyCompanion(); updateHint();
@@ -355,10 +353,10 @@ function updateHint() {
   if (S.tool === "centre") return hint("Centre");
   if (S.tool === "count") return hint("Lacunae");
   if (S.tool === "ignore") return hint("Ignore box");
-  if (S.tool === "label") return hint("Label features");
+  if (S.tool === "label") return hint("Label");
   if (S.tool === "transect") return hint(`Transect · ${S.tStart ? "inner" : "outer"} end`);
   if (S.tool === "cross") return hint("Transect · crossings");
-  if (S.tool === "align") { const n = S.align.pts.length; return hint(`Align · landmark ${n < 2 ? 1 : 2} · ${n % 2 ? "other-light image" : "main image"}`); }
+  if (S.tool === "align") { const n = S.align.pts.length; return hint(`Align · ${n < 2 ? 1 : 2} · ${n % 2 ? "other" : "main"}`); }
   if (S.tool === "trace" && S.active) return hint(curveName(curve(S.active.curveId)));
   hint("");
 }
@@ -425,7 +423,7 @@ const row = (label, ...kids) => h("div", { class: "tm-row" }, h("label", {}, lab
 
 function tagTarget() { const id = S.active ? S.active.curveId : S.current; return id && S.doc ? curve(id) : null; }
 function openTag(anchor) {
-  const c = tagTarget(); if (!c) { status("Select a line in the list first."); return; }
+  const c = tagTarget(); if (!c) { status("No line selected"); return; }
   if (c.kind === "transect") return showPop(anchor, () => renderTransectPop(c), "tr:" + c.id);
   showPop(anchor, () => renderTag(c), "tag:" + c.id);
 }
@@ -436,14 +434,14 @@ function renderTag(c) {
   if (TAGGABLE.includes(c.kind)) {
     const sel = h("select", { onchange: (e) => { setKind(c, e.target.value); re(); } });
     for (const k of TAGGABLE) sel.append(h("option", { value: k, selected: c.kind === k }, KINDS[k].label));
-    m.append(row("This line is", sel));
+    m.append(row("Kind", sel));
   }
   if (c.kind === "mark") {
     const others = S.doc.curves.filter((x) => x.kind === "mark" && x.id !== c.id && !x.branch_of);
     if (!c.branch_of) m.append(row("Number",
-      h("input", { type: "number", min: 1, step: 1, value: c.mark_index ?? "", disabled: c.index_auto, title: "1 = innermost mark you can see",
+      h("input", { type: "number", min: 1, step: 1, value: c.mark_index ?? "", disabled: c.index_auto, title: "1 = innermost",
         onchange: (e) => { pushUndo(); c.mark_index = e.target.value === "" ? null : parseInt(e.target.value, 10); re(); } }),
-      h("label", { class: "chk", title: "Numbered from the inside out by position" }, h("input", { type: "checkbox", checked: c.index_auto !== false,
+      h("label", { class: "chk" }, h("input", { type: "checkbox", checked: c.index_auto !== false,
         onchange: (e) => { c.index_auto = e.target.checked; re(); } }), "auto"),
       h("label", { class: "chk" }, h("input", { type: "checkbox", checked: c.index_uncertain,
         onchange: (e) => { c.index_uncertain = e.target.checked; re(); } }), "unsure")));
@@ -451,18 +449,18 @@ function renderTag(c) {
     m.append(row("Confidence", seg([[3, "Sure"], [2, "Fairly"], [1, "Guess"]], c.confidence, (v) => { c.confidence = v || 3; re(); })));
     const sel = h("select", { onchange: (e) => { pushUndo(); c.branch_of = e.target.value || null;
       if (c.branch_of) { c.mark_index = curve(c.branch_of).mark_index; c.index_uncertain = false; } re(); } },
-      h("option", { value: "" }, "no: its own mark"));
+      h("option", { value: "" }, "—"));
     for (const x of others) sel.append(h("option", { value: x.id, selected: c.branch_of === x.id }, curveName(x)));
-    m.append(row("Splits off", sel));
+    m.append(row("Branch of", sel));
     m.append(row("", h("label", { class: "chk" }, h("input", { type: "checkbox", checked: c.in_efs,
-      onchange: (e) => { c.in_efs = e.target.checked; re(); } }), "inside the EFS")));
+      onchange: (e) => { c.in_efs = e.target.checked; re(); } }), "in EFS")));
   }
   if (c.kind === "label") {
     m.append(row("Number", h("input", { type: "number", min: 1, step: 1, value: c.label_index ?? "",
       onchange: (e) => { c.label_index = e.target.value === "" ? null : parseInt(e.target.value, 10); re(); } })));
     m.append(row("Dye", seg(DYES, c.dye, (v) => { c.dye = v; re(); })));
     m.append(row("Date", h("input", { type: "date", value: c.label_date || "", onchange: (e) => { c.label_date = e.target.value; re(); } })));
-    m.append(row("Age (days)", h("input", { type: "number", min: 0, step: 1, value: c.age_days ?? "", title: "Animal's age at injection",
+    m.append(row("Age (days)", h("input", { type: "number", min: 0, step: 1, value: c.age_days ?? "", 
       onchange: (e) => { c.age_days = e.target.value === "" ? null : +e.target.value; re(); } })));
   }
   m.append(h("div", { class: "tm-foot" }, h("button", { class: "primary", onclick: closePop }, "Done")));
@@ -473,21 +471,21 @@ function renderTransectPop(c) {
   for (const end of ["outer", "inner"]) {
     const sel = h("select", { onchange: (e) => { c.ends[end] = e.target.value; re(); } });
     for (const [v, lab] of ENDS[end]) sel.append(h("option", { value: v, selected: c.ends[end] === v }, lab));
-    m.append(row(end === "outer" ? "Outer end at" : "Inner end at", sel));
+    m.append(row(end === "outer" ? "Outer end" : "Inner end", sel));
   }
   const xs = crossings(c);
-  if (!xs.length) m.append(h("p", { class: "muted" }, "No crossings yet. Click marks along the line."));
+  if (!xs.length) m.append(h("p", { class: "muted" }, "No crossings"));
   for (const x of xs) {
     const sel = h("select", { onchange: (e) => { x.kind = e.target.value; re(); } });
     for (const [v, lab] of XING_KINDS) sel.append(h("option", { value: v, selected: x.kind === v }, lab));
     m.append(h("div", { class: "tm-row" }, h("label", {}, x.kind === "mark" ? `Mark ${x._idx ?? "?"}` : "·"),
       h("span", { class: "row" }, sel,
         x.kind === "mark" ? h("input", { type: "number", class: "num", min: 1, value: x.index_auto === false ? x.mark_index ?? "" : "", placeholder: "auto",
-          title: "Leave empty to number automatically", onchange: (e) => { const v = e.target.value; x.index_auto = v === ""; x.mark_index = v === "" ? null : parseInt(v, 10); re(); } }) : null,
+          title: "empty = auto", onchange: (e) => { const v = e.target.value; x.index_auto = v === ""; x.mark_index = v === "" ? null : parseInt(v, 10); re(); } }) : null,
         h("button", { class: "icon", title: "Delete", onclick: () => { pushUndo(); c.crossings.splice(c.crossings.indexOf(x), 1); re(); } }, "✕"))));
   }
   m.append(h("div", { class: "tm-foot" },
-    h("button", { onclick: () => { closePop(); S.activeT = c.id; S.tool = "cross"; updateHint(); renderAll(); } }, "Add crossings"),
+    h("button", { onclick: () => { closePop(); S.activeT = c.id; S.tool = "cross"; updateHint(); renderAll(); } }, "Add"),
     h("button", { class: "primary", onclick: closePop }, "Done")));
 }
 document.addEventListener("pointerdown", (e) => {
@@ -501,6 +499,17 @@ function resample(sg, step) { const out = [];
   for (let i = 0; i < sg.length - 1; i++) { const a = sg[i], b = sg[i + 1], L = dist(a, b), n = Math.max(1, Math.ceil(L / step));
     for (let j = 0; j < n; j++) out.push([a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n]); }
   if (sg.length) out.push(sg[sg.length - 1]); return out; }
+// A periosteum traced all the way round ends a click short of where it started. Treat it as closed when the gap is
+// small (at most 12% of its length) and no broken edge was traced across the gap. The importer applies the same rule.
+function closeLoop(sg, kind, d) {
+  if (kind !== "periosteum" || sg.length < 4) return sg;
+  const a = sg[0], b = sg[sg.length - 1], gap = dist(a, b); let L = 0; for (let i = 1; i < sg.length; i++) L += dist(sg[i - 1], sg[i]);
+  if (!gap || gap > 0.12 * L) return sg;
+  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  if (d.curves.some((c) => c.kind === "broken_edge" && distToPolyline(mid, c.segments) < gap)) return sg;
+  return [...sg, a];
+}
+const segsOf = (c, d) => c.segments.map((sg) => closeLoop(sg, c.kind, d));
 function sample(c, max = 60) { const p = c.segments.flatMap((s) => resample(s, 2)); if (p.length <= max) return p;
   const k = p.length / max; return [...Array(max)].map((_, i) => p[Math.floor(i * k)]); }
 function distToPolyline(p, segs) { let best = Infinity;
@@ -512,8 +521,8 @@ function distToPolyline(p, segs) { let best = Infinity;
 const angle = (q, z) => ((Math.atan2(q[1] - z[1], q[0] - z[0]) * 180 / Math.PI) + 360) % 360;
 function coverageOf(pts, z) { const bins = new Array(72).fill(false); for (const q of pts) bins[Math.floor(angle(q, z) / 5) % 72] = true; return bins; }
 // Angular coverage (5-degree bins) and the arc occupied, as [start, end] degrees clockwise in image coordinates.
-function angular(c, z) {
-  const pts = c.segments.flatMap((s) => resample(s, 2)); if (!z || pts.length < 2) return null;
+function angular(c, z, d = S.doc) {
+  const pts = segsOf(c, d).flatMap((s) => resample(s, 2)); if (!z || pts.length < 2) return null;
   const bins = coverageOf(pts, z), n = bins.filter(Boolean).length; if (n === 72) return { coverage_deg: 360, arc_deg: [0, 360] };
   let gapStart = 0, gapLen = 0;                       // the largest empty run marks where the arc is not
   for (let i = 0; i < 72; i++) if (!bins[i]) { let L = 0; while (L < 72 && !bins[(i + L) % 72]) L++; if (L > gapLen) { gapLen = L; gapStart = i; } }
@@ -572,19 +581,23 @@ function circleFit(pts) {
 }
 // Uses the periosteum alone when it spans 90 degrees or more: broken edges often run radially (cracks) and would bias it.
 function fitCentre(d = S.doc) {
-  const ptsOf = (kinds) => d.curves.filter((c) => kinds.includes(c.kind)).flatMap((c) => c.segments.flatMap((s) => resample(s, 3)));
+  const ptsOf = (kinds) => d.curves.filter((c) => kinds.includes(c.kind)).flatMap((c) => segsOf(c, d).flatMap((s) => resample(s, 3)));
   let pts = ptsOf(["periosteum"]), cf = pts.length >= 8 ? circleFit(pts) : null;
   if (!cf || coverageOf(pts, cf.c).filter(Boolean).length * 5 < 90) { pts = ptsOf(["periosteum", "broken_edge"]); cf = pts.length >= 8 ? circleFit(pts) : null; }
-  if (pts.length < 8) return { err: "Trace the outer edge (periosteum or broken edge) first." };
-  if (!cf) return { err: "Could not fit a circle to the outer edge." };
+  if (pts.length < 8) return { err: "No outer edge" };
+  if (!cf) return { err: "No fit" };
   const cov = coverageOf(pts, cf.c).filter(Boolean).length * 5;
-  if (cov < 90) return { err: `The outer edge covers only ${cov}° around its centre: too little to fit one. Click the centre, or choose No centre.` };
+  if (cov < 90) return { err: `Arc ${cov}° (< 90°)` };
   if (cov >= 330) {
     const ring = [...pts].sort((a, b) => angle(a, cf.c) - angle(b, cf.c)); let A = 0, cx = 0, cy = 0;
     for (let i = 0; i < ring.length; i++) { const p = ring[i], q = ring[(i + 1) % ring.length], x = p[0] * q[1] - q[0] * p[1]; A += x; cx += (p[0] + q[0]) * x; cy += (p[1] + q[1]) * x; }
     if (Math.abs(A) > 1) return { c: [cx / (3 * A), cy / (3 * A)], fit: { method: "outline_centroid", arc_deg: cov, rms_px: +cf.rms.toFixed(2) } };
   }
-  return { c: cf.c, fit: { method: "circle_fit", arc_deg: cov, rms_px: +cf.rms.toFixed(2) } };
+  // A partial arc that is not close to circular (flattened ribs, crushed sections) gives a centre that means nothing.
+  // On short arcs even a modest misfit throws the centre far off; long elliptical arcs misfit more but stay usable.
+  const rel = cf.rms / cf.r;
+  if (rel > (cov < 240 ? 0.05 : 0.15)) return { err: `Not circular (rms ${(100 * rel).toFixed(0)}% of radius)` };
+  return { c: cf.c, fit: { method: "circle_fit", arc_deg: cov, rms_px: +cf.rms.toFixed(2), rms_rel: +rel.toFixed(4) } };
 }
 
 // Transect crossings, outer end first, with mark numbers (1 = innermost mark crossing on this transect).
@@ -606,6 +619,7 @@ $("padIn").addEventListener("click", () => zoomMid(1 / 1.25));
 $("padOut").addEventListener("click", () => zoomMid(1.25));
 $("padFit").addEventListener("click", fit);
 $("padSwap").addEventListener("click", swapLight);
+$("padAdjust").addEventListener("click", () => { $("adjust").hidden = !$("adjust").hidden; });
 
 function addVertex(p) {
   const c = curve(S.active.curveId); pushUndo();
@@ -838,7 +852,7 @@ function renderPanels() {
   const body = $("body-" + S.step); body.innerHTML = "";
   const s = STEPS.find((x) => x.id === S.step);
   body.append(h("h3", {}, s.title));
-  if (!applies(S.step)) body.append(h("div", { class: "box" }, S.doc.setup.view === "unusable" ? "Not needed: the image was marked as unusable." : "Not needed for a close-up."));
+  if (!applies(S.step)) body.append(h("div", { class: "box" }, S.doc.setup.view === "unusable" ? "N/A (unusable)" : "N/A (close-up)"));
   else STEP_BODY[S.step](body);
   if (s.reasons && applies(S.step)) body.append(skipBar(s));
   updateHint();
@@ -850,13 +864,13 @@ function skipBar(s) {
   const sel = h("select", { onchange: (e) => { if (!e.target.value) return; S.doc.steps[s.id] = { status: "skipped", reason: e.target.value };
     if (s.id === "scale") S.doc.flags.no_scale = true;
     if (s.id === "outline" && !S.doc.centre) S.doc.flags.no_centre = true;
-    touch(); stepBy(1); renderPanels(); } }, h("option", { value: "" }, "reason…"));
+    touch(); stepBy(1); renderPanels(); } }, h("option", { value: "" }, "—"));
   for (const r of s.reasons) sel.append(h("option", { value: r }, r));
-  return h("div", { class: "skipbar" }, "Not done: ", sel);
+  return h("div", { class: "skipbar" }, "Skip: ", sel);
 }
 
-// One answer from a list of buttons, with optional pictures and a "Can't tell" button.
-function choices(list, cur, onPick, { unclear = true, unclearLabel = "Can't tell" } = {}) {
+// One answer from a list of buttons, with optional pictures and an "Unclear" button.
+function choices(list, cur, onPick, { unclear = true, unclearLabel = "Unclear" } = {}) {
   const pics = list.some((o) => o[2]);
   const d = h("div", { class: "opts" + (pics ? " pics" : "") });
   for (const [v, label, icon] of list) { const b = h("button", { class: cur === v ? "on" : "", onclick: () => onPick(cur === v ? null : v) });
@@ -872,31 +886,31 @@ function kindButton(kind, onclick, label) { const has = S.doc.curves.some((c) =>
 const STEP_BODY = {
   image(b) {
     const d = S.doc, su = d.setup, re = () => { touch(); renderPanels(); };
-    if (d.task.caption) b.append(h("details", { class: "fold" }, h("summary", {}, "Figure caption"), h("div", { class: "small" }, d.task.caption)));
-    b.append(question("What does this image show?", null, su.view,
+    if (d.task.caption) b.append(h("details", { class: "fold" }, h("summary", {}, "Caption"), h("div", { class: "small" }, d.task.caption)));
+    b.append(question("View", null, su.view,
       choices(VIEWS, su.view, (v) => { su.view = v; if (v !== "unusable") delete d.steps.image; re(); }, { unclear: false })));
-    if (su.view === "unusable") b.append(h("div", { class: "row" }, "Why? ",
-      h("input", { value: (d.steps.image && d.steps.image.reason) || "", placeholder: "e.g. drawing, no bone, too small",
+    if (su.view === "unusable") b.append(h("div", { class: "row" },
+      h("input", { value: (d.steps.image && d.steps.image.reason) || "", placeholder: "why",
         onchange: (e) => { d.steps.image = { status: "skipped", reason: e.target.value || "unusable" }; touch(); } })));
-    b.append(question("How was it lit?", null,
+    b.append(question("Light", null,
       su.light, choices(LIGHTS, su.light, (v) => { su.light = v; re(); }, { unclear: false })));
     // other-light image
     const others = S.tasks.filter((t) => t.file !== d.image.file && !t._missing);
     const comp = su.companion;
-    const blk = h("div", { class: "q" + (comp ? " done" : "") }, h("div", { class: "qt" }, "Same section, other light"));
+    const blk = h("div", { class: "q" + (comp ? " done" : "") }, h("div", { class: "qt" }, "Other light"));
     if (!comp) {
       const sel = h("select", { onchange: async (e) => { if (!e.target.value) return; pushUndo();
         su.companion = { file: e.target.value, light: su.light === "plain" ? "xpl" : su.light && POLARIZED.has(su.light) ? "plain" : null, sha256: null, transform: null, transform_method: null };
-        await loadCompanion(); S.blend = 0; renderTasks(); re(); } }, h("option", { value: "" }, others.length ? "choose an image…" : "no other images in this folder"));
+        await loadCompanion(); S.blend = 0; renderTasks(); re(); } }, h("option", { value: "" }, others.length ? "—" : "none"));
       for (const t of others) sel.append(h("option", { value: t.file }, t.figure_id));
       blk.append(sel);
     } else {
       const aligned = comp.transform_method === "two_landmarks" || comp.transform_method === "same_size";
       blk.append(h("div", { class: "row" }, h("b", {}, comp.file), h("button", { class: "link", onclick: () => { pushUndo(); store.del(keyComp(comp.file)); su.companion = null; loadCompanion(); renderTasks(); re(); } }, "remove")),
-        h("div", { class: "row" }, "Its light: ", seg(LIGHTS.slice(0, 4), comp.light, (v) => { comp.light = v; re(); })),
-        h("div", { class: "row" }, h("button", { class: S.tool === "align" ? "active" : "", onclick: startAlign }, "Align (2 landmarks)"),
-          h("span", { class: aligned ? "ok small" : "warn small" }, comp.transform_method === "two_landmarks" ? "aligned" : comp.transform_method === "same_size" ? "same size: assumed aligned" : "not aligned yet")),
-        h("div", { class: "row" }, "Show: ", h("input", { type: "range", min: 0, max: 100, value: Math.round(S.blend * 100), style: "flex:1",
+        h("div", { class: "row" }, seg(LIGHTS.slice(0, 4), comp.light, (v) => { comp.light = v; re(); })),
+        h("div", { class: "row" }, h("button", { class: S.tool === "align" ? "active" : "", onclick: startAlign }, "Align"),
+          h("span", { class: aligned ? "ok small" : "warn small" }, comp.transform_method === "two_landmarks" ? "aligned" : comp.transform_method === "same_size" ? "same size" : "not aligned")),
+        h("div", { class: "row" }, h("input", { type: "range", min: 0, max: 100, value: Math.round(S.blend * 100), style: "flex:1",
           oninput: (e) => { S.blend = e.target.value / 100; applyCompanion(); } }), h("kbd", {}, "P")));
     }
     b.append(blk);
@@ -905,36 +919,36 @@ const STEP_BODY = {
       if (v != null && v !== "") meta.append(h("dd", {}, String(v)));
       else { if (["taxon", "specimen", "element"].includes(k) && !d.identity_edits[k]) missing++;
         meta.append(h("dd", {}, h("input", { value: d.identity_edits[k] || "", placeholder: "—", onchange: (e) => { d.identity_edits[k] = e.target.value; touch(); renderIdent(); } }))); } }
-    b.append(h("details", { class: "fold", open: missing > 0 }, h("summary", {}, missing ? `Specimen details (${missing} missing)` : "Specimen details"), meta));
+    b.append(h("details", { class: "fold", open: missing > 0 }, h("summary", {}, missing ? `Specimen (${missing} missing)` : "Specimen"), meta));
   },
   scale(b) {
     const d = S.doc, c = d.calibration;
     b.append(h("div", { class: "tools" }, h("button", { class: S.tool === "scale" ? "active primary" : "primary", onclick: () => setTool(S.tool === "scale" ? "pan" : "scale") },
-      c ? "Reset scale bar" : "Scale bar")));
+      c ? "Redo" : "Scale bar")));
     if (c) {
       const un = h("select", { onchange: (e) => { c.unit = e.target.value; touch(); renderPanels(); } });
       for (const u of ["um", "mm", "cm"]) un.append(h("option", { value: u, selected: c.unit === u }, u === "um" ? "µm" : u));
       b.append(h("div", { class: "row" }, "Length ", h("input", { id: "calLen", type: "number", step: "any", min: "0", value: c.length ?? "", class: "num",
         onchange: (e) => { c.length = parseFloat(e.target.value) || null; touch(); renderPanels(); } }), un));
-      if (d.task.scale_value) b.append(h("div", { class: "muted small" }, `The figure says: ${d.task.scale_value}`));
+      if (d.task.scale_value) b.append(h("div", { class: "muted small" }, `Figure: ${d.task.scale_value}`));
       const k = pxPerUnit(); if (k) b.append(h("div", { class: "box ok" }, `${(k).toFixed(2)} px per ${c.unit === "um" ? "µm" : c.unit}`));
     }
   },
   outline(b) {
     const d = S.doc, re = () => { touch(); renderPanels(); };
-    b.append(h("div", { class: "sub" }, "Outer edge"),
+    b.append(h("div", { class: "sub" }, "Outer"),
       h("div", { class: "tools" }, kindButton("periosteum"), kindButton("broken_edge")));
-    b.append(h("div", { class: "sub" }, "Inner edge"),
+    b.append(h("div", { class: "sub" }, "Inner"),
       h("div", { class: "tools" }, kindButton("medullary"), kindButton("remodel_front")));
     b.append(curveList(["periosteum", "broken_edge", "medullary", "remodel_front"]));
     b.append(h("div", { class: "sub" }, "Centre"));
     const fitted = d.centre_method === "fitted", f = d.centre_fit;
     b.append(h("div", { class: "tools" },
-      h("button", { class: d.centre_method === "clicked" ? "active" : "", onclick: () => setTool("centre") }, "Click it"),
+      h("button", { class: d.centre_method === "clicked" ? "active" : "", onclick: () => setTool("centre") }, "Click"),
       h("button", { class: fitted ? "active" : "", onclick: () => { const r = fitCentre(); if (r.err) { status(r.err, true); return; }
-        pushUndo(); d.centre = rnd(r.c); d.centre_method = "fitted"; d.centre_fit = r.fit; d.flags.no_centre = false; re(); } }, "Fit from outline"),
-      h("button", { class: d.flags.no_centre ? "active" : "", onclick: () => { pushUndo(); d.centre = null; d.centre_method = null; d.centre_fit = null; d.flags.no_centre = true; re(); } }, "No centre")));
-    b.append(h("div", { class: "small muted" }, d.centre ? (fitted ? `Fitted: ${f.method === "outline_centroid" ? "outline centroid" : "circle"}, ${f.arc_deg}°` : "Clicked") : d.flags.no_centre ? "None" : "Not set"));
+        pushUndo(); d.centre = rnd(r.c); d.centre_method = "fitted"; d.centre_fit = r.fit; d.flags.no_centre = false; re(); } }, "Fit"),
+      h("button", { class: d.flags.no_centre ? "active" : "", onclick: () => { pushUndo(); d.centre = null; d.centre_method = null; d.centre_fit = null; d.flags.no_centre = true; re(); } }, "None")));
+    b.append(h("div", { class: "small muted" }, d.centre ? (fitted ? `${f.method === "outline_centroid" ? "centroid" : "circle"} · ${f.arc_deg}°` : "clicked") : d.flags.no_centre ? "" : "—"));
     b.append(h("div", { class: "sub" }, "Section"));
     const g = h("div", { class: "grid2" });
     for (const [k, lab, opts] of SECTION_FIELDS) {
@@ -948,29 +962,29 @@ const STEP_BODY = {
     const d = S.doc, su = d.setup, re = () => { touch(); renderPanels(); };
     b.append(h("div", { class: "row" }, seg([["trace", "Trace"], ["transect", "Transect"]], su.marks_mode || "trace", (v) => { su.marks_mode = v || "trace"; re(); })));
     if ((su.marks_mode || "trace") === "trace") {
-      b.append(h("div", { class: "tools" }, kindButton("mark", () => newCurve("mark"), "Growth mark"), h("kbd", {}, "N"),
-          su.light === "fluorescence" || (su.companion && su.companion.light === "fluorescence") ? kindButton("label", () => newCurve("label"), "Fluorochrome label") : null,
-          kindButton("efs_inner", () => traceKind("efs_inner"), "EFS inner boundary")));
+      b.append(h("div", { class: "tools" }, kindButton("mark", () => newCurve("mark"), "Mark"), h("kbd", {}, "N"),
+          su.light === "fluorescence" || (su.companion && su.companion.light === "fluorescence") ? kindButton("label", () => newCurve("label"), "Label") : null,
+          kindButton("efs_inner", () => traceKind("efs_inner"), "EFS base")));
       b.append(curveList(["mark", "label", "efs_inner"]));
     } else {
-      b.append(h("div", { class: "tools" }, h("button", { class: S.tool === "transect" ? "active primary" : "primary", onclick: () => setTool("transect") }, "Add transect"),
+      b.append(h("div", { class: "tools" }, h("button", { class: S.tool === "transect" ? "active primary" : "primary", onclick: () => setTool("transect") }, "New"),
           S.tool === "cross" ? h("button", { onclick: () => setTool("pan") }, "Done") : null));
       b.append(curveList(["transect"]));
     }
     b.append(h("div", { class: "sub" }, "Count"));
     const ct = d.counts;
-    b.append(question("Total growth marks counted (traced and untraced)", null, ct.visible_marks,
+    b.append(question("Total marks", null, ct.visible_marks,
       h("div", { class: "row" }, h("input", { type: "number", min: 0, class: "num", value: ct.visible_marks ?? "",
         onchange: (e) => { ct.visible_marks = e.target.value === "" ? null : parseInt(e.target.value, 10); re(); } }),
-        h("label", { class: "chk" }, h("input", { type: "checkbox", checked: ct.visible_at_least, onchange: (e) => { ct.visible_at_least = e.target.checked; re(); } }), "at least"),
-        h("button", { class: ct.visible_marks === 0 ? "active" : "", onclick: () => { ct.visible_marks = 0; ct.visible_at_least = false; re(); } }, "None visible"))));
+        h("label", { class: "chk" }, h("input", { type: "checkbox", checked: ct.visible_at_least, onchange: (e) => { ct.visible_at_least = e.target.checked; re(); } }), "≥"),
+        h("button", { class: ct.visible_marks === 0 ? "active" : "", onclick: () => { ct.visible_marks = 0; ct.visible_at_least = false; re(); } }, "None"))));
   },
   tissue(b) {
     const d = S.doc, ctx = { polarized: isPolarized(d) };
     const zs = zones().zones;
     if (!zs.length) {
       if (!d.field) d.field = { obs: {} };
-      b.append(h("div", { class: "sub" }, "Whole field"));
+      b.append(h("div", { class: "sub" }, "Field"));
       b.append(zoneQuestions(d.field, ctx, null));
       return;
     }
@@ -982,7 +996,7 @@ const STEP_BODY = {
       const card = h("div", { class: "zonecard" + (open ? " open" : "") + (ok ? "" : " unset"),
           onmouseenter: () => { S.hover = "zone:" + key; renderAll(); }, onmouseleave: () => { S.hover = null; renderAll(); } },
         h("div", { class: "zhead", onclick: () => { S.openZone = open ? null : z.outer.id; renderPanels(); } },
-          h("span", { class: "zname" }, (ok ? "✓ " : "") + name), h("span", { class: "detail" }, ok ? "described" : zd && zd.obs && Object.keys(zd.obs).length ? "in progress" : "not described")));
+          h("span", { class: "zname" }, (ok ? "✓ " : "") + name), h("span", { class: "detail" }, ok ? "" : zd && zd.obs && Object.keys(zd.obs).length ? "…" : "")));
       if (open) { z.outer.zone = z.outer.zone || { obs: {} }; z.outer.zone.obs = z.outer.zone.obs || {};
         const innerZ = list[i + 1] && list[i + 1].outer.zone;
         card.append(h("div", { class: "zbody" }, zoneQuestions(z.outer.zone, ctx, { innerZ, all: list, next: list[i + 1] }))); }
@@ -994,16 +1008,16 @@ const STEP_BODY = {
     const ask = (q) => {
       const cur = sc[q.key];
       const kids = [choices(q.opts.map(([v, l, ic]) => [v, l, ic]), cur, (v) => { sc[q.key] = v; if (v !== HG.UNCLEAR) delete sc[q.key + "_reason"]; re(); })];
-      if (cur === HG.UNCLEAR && q.reasons) { const sel = h("select", { onchange: (e) => { sc[q.key + "_reason"] = e.target.value || null; re(); } }, h("option", { value: "" }, "why?"));
-        for (const r of q.reasons) sel.append(h("option", { value: r, selected: sc[q.key + "_reason"] === r }, r)); kids.push(h("div", { class: "row small" }, "Because: ", sel)); }
+      if (cur === HG.UNCLEAR && q.reasons) { const sel = h("select", { onchange: (e) => { sc[q.key + "_reason"] = e.target.value || null; re(); } }, h("option", { value: "" }, "why"));
+        for (const r of q.reasons) sel.append(h("option", { value: r, selected: sc[q.key + "_reason"] === r }, r)); kids.push(h("div", { class: "row small" }, sel)); }
       const tip = q.tip;
-      if (q.key === "efs" && cur === "present") kids.push(h("div", { class: "row" }, kindButton("efs_inner", () => traceKind("efs_inner"), "EFS inner boundary")),
-        h("div", { class: "row small" }, "Unresolved lines in EFS, at least ",
+      if (q.key === "efs" && cur === "present") kids.push(h("div", { class: "row" }, kindButton("efs_inner", () => traceKind("efs_inner"), "EFS base")),
+        h("div", { class: "row small" }, "Lines ≥ ",
           h("input", { type: "number", min: 0, class: "num", value: d.counts.efs_lines_min ?? "", onchange: (e) => { d.counts.efs_lines_min = e.target.value === "" ? null : parseInt(e.target.value, 10); touch(); } })));
       return question(q.q, tip, cur, ...kids);
     };
     for (const q of HG.BONE_Q.filter((x) => !x.more)) b.append(ask(q));
-    b.append(h("details", { class: "fold" }, h("summary", {}, "More questions"), ...HG.BONE_Q.filter((x) => x.more).map(ask)));
+    b.append(h("details", { class: "fold" }, h("summary", {}, "More"), ...HG.BONE_Q.filter((x) => x.more).map(ask)));
     b.append(h("div", { class: "sub" }, "Notes"), h("textarea", { rows: 3, placeholder: "", value: d.notes || "",
       oninput: (e) => { d.notes = e.target.value; touch(); } }));
   },
@@ -1028,7 +1042,7 @@ function zoneQuestions(zone, ctx, nav) {
   zone.obs = zone.obs || {}; const o = zone.obs;
   const wrap = h("div", {});
   const re = () => { delete zone.legacy; Object.assign(zone, HG.interpretZone(o, ctx)); touch(); renderPanels(); };
-  if (zone.legacy && !Object.keys(o).length) wrap.append(h("div", { class: "box" }, "0.3 description kept"));
+  if (zone.legacy && !Object.keys(o).length) wrap.append(h("div", { class: "box" }, "0.3 terms kept"));
   for (const q of HG.ZONE_Q) {
     if (q.when && !q.when(o, ctx)) { if (o[q.key] != null && q.key !== "matrix_xpl" && q.key !== "lacuna_shape") delete o[q.key]; continue; }
     wrap.append(question(q.q, q.tip, o[q.key], choices(q.opts, o[q.key], (v) => { if (v == null) delete o[q.key]; else o[q.key] = v; re(); })));
@@ -1036,16 +1050,16 @@ function zoneQuestions(zone, ctx, nav) {
   const t = HG.interpretZone(o, ctx);
   if (!(zone.legacy && !Object.keys(o).length)) Object.assign(zone, t);
   wrap.append(h("label", { class: "chk small" }, h("input", { type: "checkbox", checked: !!zone.varies, onchange: (e) => { zone.varies = e.target.checked; touch(); } }),
-    "Varies around the section"));
+    "Varies"));
   if (nav) {
     const copy = (src, dst) => { dst.obs = JSON.parse(JSON.stringify(src.obs || {})); Object.assign(dst, HG.interpretZone(dst.obs, ctx)); };
     wrap.append(h("div", { class: "tools" },
       h("button", { disabled: !(nav.innerZ && nav.innerZ.obs && Object.keys(nav.innerZ.obs).length), 
-        onclick: () => { copy(nav.innerZ, zone); re(); } }, "Same as inner"),
+        onclick: () => { copy(nav.innerZ, zone); re(); } }, "= inner"),
       h("button", { disabled: !HG.complete(o, ctx),
         onclick: () => { let n = 0; for (const z of nav.all) { const c = z.outer; if (zoneDone(c.zone, ctx)) continue; c.zone = c.zone || {}; copy(zone, c.zone); n++; }
-          status(`Copied to ${n} zone${n === 1 ? "" : "s"}. Check each one.`); renderPanels(); } }, "Copy to undescribed zones"),
-      nav.next ? h("button", { class: "primary", onclick: () => { S.openZone = nav.next.outer.id; renderPanels(); } }, "Next zone ›") : null));
+          status(`Copied to ${n}`); renderPanels(); } }, "Copy to rest"),
+      nav.next ? h("button", { class: "primary", onclick: () => { S.openZone = nav.next.outer.id; renderPanels(); } }, "Next ›") : null));
   }
   return wrap;
 }
@@ -1097,8 +1111,8 @@ function validate() {
   if (!d.setup.light) W("Light", "image");
   if (!pxPerUnit() && !skipped("scale")) E(d.calibration ? "Scale-bar length" : "Scale bar", "scale");
   const c = d.setup.companion;
-  if (c && c.transform_method === "scaled_to_width") W("Other-light image not aligned", "image");
-  if (c && !c.light) W("Other-light image: light", "image");
+  if (c && c.transform_method === "scaled_to_width") W("Other light not aligned", "image");
+  if (c && !c.light) W("Other light: light", "image");
   const marks = d.curves.filter((x) => x.kind === "mark" && !x.branch_of);
   if (applies("outline")) {
     if (!skipped("outline")) {
@@ -1106,7 +1120,7 @@ function validate() {
       if (!d.centre && !d.flags.no_centre) W("Centre", "outline");
       if (!d.section.position) W("Section position", "outline");
     }
-    if (!skipped("marks") && stepState("marks") !== "done") W("Growth marks or count", "marks");
+    if (!skipped("marks") && stepState("marks") !== "done") W("Marks or count", "marks");
     if (marks.some((m) => m.mark_index == null && !m.index_uncertain)) E("Mark without number", "marks");
     const idx = marks.filter((m) => !m.index_uncertain && m.mark_index != null).map((m) => m.mark_index);
     const dup = [...new Set(idx.filter((v, i) => idx.indexOf(v) !== i))];
@@ -1119,7 +1133,7 @@ function validate() {
   if (d.curves.some((x) => x.kind === "transect" && !x.crossings.length)) W("Transect without crossings", "marks");
   if (!skipped("tissue") && stepState("tissue") !== "done") W("Tissue", "tissue");
   if (d.scores.efs == null) W("EFS", "bone");
-  if (d.scores.efs === "present" && !d.curves.some((x) => x.kind === "efs_inner")) W("EFS inner boundary", "bone");
+  if (d.scores.efs === "present" && !d.curves.some((x) => x.kind === "efs_inner")) W("EFS base", "bone");
   for (const q of HG.BONE_Q) if (d.scores[q.key] === HG.UNCLEAR && q.reasons && !d.scores[q.key + "_reason"]) W(`Reason missing: ${q.key.replace(/_/g, " ")}`, "bone");
   if (d.curves.some((x) => x.kind === "label" && !x.label_date && x.age_days == null)) W("Label date or age", "marks");
   if (d.lacunae.length && !d.curves.some((x) => x.kind === "count_area")) W("Lacuna count area", "more");
@@ -1132,12 +1146,12 @@ function derive(d) {
   const z = d.centre, num = (v) => (v == null || !isFinite(v) ? null : +v.toFixed(4));
   const curves = d.curves.filter((c) => c.kind !== "transect").map((c) => {
     const closed = KINDS[c.kind].closed;
-    let L = 0, nv = 0; for (const s of c.segments) { nv += s.length; for (let i = 1; i < s.length; i++) L += dist(s[i - 1], s[i]);
+    let L = 0, nv = 0; for (const s of segsOf(c, d)) { nv += s.length; for (let i = 1; i < s.length; i++) L += dist(s[i - 1], s[i]);
       if (closed && s.length > 2) L += dist(s[s.length - 1], s[0]); }
     const o = { id: c.id, kind: c.kind, name: curveName(c), n_segments: c.segments.length, n_points: nv, [closed ? "perimeter" : "length"]: num(cv(L)) };
     if (z && nv > 1 && !closed) { const pts = c.segments.flatMap((s) => resample(s, 2)), rs = pts.map((q) => dist(q, z));
       Object.assign(o, { radius_mean: num(cv(rs.reduce((a, b) => a + b, 0) / rs.length)), radius_min: num(cv(Math.min(...rs))),
-        radius_max: num(cv(Math.max(...rs))) }, angular(c, z)); }
+        radius_max: num(cv(Math.max(...rs))) }, angular(c, z, d)); }
     if (closed && c.segments[0] && c.segments[0].length > 2) o.area = num(cv(cv(polyArea(c.segments[0]))));
     return o;
   });
@@ -1152,7 +1166,7 @@ function derive(d) {
     const n = d.lacunae.filter((q) => inPoly(q, c.segments[0])).length, a = cv(cv(polyArea(c.segments[0])));
     return { area_id: c.id, n_lacunae: n, area: num(a), density_per_unit2: num(a ? n / a : null) };
   });
-  const cover = (kind) => { if (!z) return null; const pts = d.curves.filter((c) => c.kind === kind).flatMap((c) => c.segments.flatMap((s) => resample(s, 2)));
+  const cover = (kind) => { if (!z) return null; const pts = d.curves.filter((c) => c.kind === kind).flatMap((c) => segsOf(c, d).flatMap((s) => resample(s, 2)));
     return pts.length > 1 ? coverageOf(pts, z).filter(Boolean).length * 5 : 0; };
   return { note: "Computed at export as a convenience. Analysis should recompute from the raw points.",
     unit: u, px_per_unit: num(k), reference_for_zone_order: zz.method, curves, transects, zones: zoneRows, lacuna_counts: counts,
@@ -1172,7 +1186,7 @@ async function writeOut(name, data, type) {
 }
 async function exportDoc() {
   if (!S.doc) return; autoIndex(); saveDoc();
-  const v = validate(); if (v.err.length) { goStep("export"); status("Needed before export: " + v.err.map((x) => x.msg).join(", ")); return; }
+  const v = validate(); if (v.err.length) { goStep("export"); status("Missing: " + v.err.map((x) => x.msg).join(", ")); return; }
   const at = new Date().toISOString(), measurer = $("measurer").value.trim();
   const stamp = at.replace(/[:.]/g, "").replace("T", "_").slice(0, 17);   // YYYY-MM-DD_HHMMSS (UTC)
   const base = `${S.doc.task.figure_id}__${measurer.replace(/[^\w-]+/g, "")}__${stamp}`;
@@ -1185,15 +1199,15 @@ async function exportDoc() {
   for (const f of hooks.exportFiles) { const x = await f(S.doc, base); if (x) await writeOut(x.name, x.blob); }
   store.set(keyStatus(d.task.figure_id), "done"); renderTasks(); renderPanels(); status(`Saved ${where}`);
 }
-function nextTask() { for (let i = S.idx + 1; i < S.tasks.length; i++) if (!S.tasks[i]._missing && !isCompanionTask(S.tasks[i])) return openTask(i); status("This was the last image."); }
+function nextTask() { for (let i = S.idx + 1; i < S.tasks.length; i++) if (!S.tasks[i]._missing && !isCompanionTask(S.tasks[i])) return openTask(i); status("Last image"); }
 // Reopen an earlier export of this image (and its mask, if chosen too) to review or relabel it. The next export is a
 // new file that records which export it was based on.
 async function loadExport(files) {
   const js = files.find((f) => /\.json$/i.test(f.name)), mask = files.find((f) => /\.png$/i.test(f.name));
-  if (!js) { status("Choose an export .json (and its .mask.png, if any)."); return; }
+  if (!js) { status("No .json"); return; }
   let d; try { d = JSON.parse(await js.text()); } catch (e) { status("Not readable: " + e.message, true); return; }
   const fid = d.task && d.task.figure_id, i = S.tasks.findIndex((t) => t.figure_id === fid);
-  if (i < 0) { status(`Open the folder that holds ${fid || "this image"} first.`, true); return; }
+  if (i < 0) { status(`${fid || "Image"} not in this folder`, true); return; }
   if (i !== S.idx) await openTask(i);
   d = migrate(d); if (!d) { status("Unknown export version.", true); return; }
   d.based_on = { file: js.name, measurer: d.measurer || null, exported_at: d.exported_at || null };
@@ -1203,9 +1217,9 @@ async function loadExport(files) {
   S.doc = d; S.undo = []; S.current = null; S.active = null; closePop();
   await loadCompanion(); renderPanels(); renderAll(); saveDoc();
   for (const f of hooks.loaded) f(mask || null);
-  status(`Loaded ${js.name}${mask ? " with its mask" : ""}. Export saves a new file.`);
+  status(`Loaded ${js.name}${mask ? " + mask" : ""}`);
 }
-$("btnLoad").addEventListener("click", () => { if (!S.doc) { status("Open the image folder first."); return; } $("loadInput").click(); });
+$("btnLoad").addEventListener("click", () => { if (!S.doc) { status("No folder open"); return; } $("loadInput").click(); });
 $("loadInput").addEventListener("change", async (e) => { await loadExport([...e.target.files]); e.target.value = ""; });
 $("btnExport").addEventListener("click", () => { if (S.doc) { goStep("export"); exportDoc(); } });
 $("btnNext").addEventListener("click", nextTask);
